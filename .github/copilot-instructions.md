@@ -12,6 +12,7 @@
 2. Tooling and dependencies must be free to build with and free to deploy/use.
 3. Execute work according to phased serial order in `PLAN.md` unless a dependency exception is explicitly approved.
 4. Keep edits minimal and strictly in scope for the active task.
+5. For phase-scoped work, follow the latest `### Agent Prompt (Phase N)` guidance in `PLAN.md`.
 
 ## Delivery expectations
 
