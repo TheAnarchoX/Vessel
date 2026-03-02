@@ -7,10 +7,10 @@ This file provides repository-specific execution guidance for human/AI agents wo
 - Current repo is minimal and prototype-first.
 - `index.html` contains the playable prototype at present.
 - Planning and direction are primarily defined in:
-  - `/home/runner/work/Vessel/Vessel/PLAN.md`
-  - `/home/runner/work/Vessel/Vessel/SPEC.md`
-  - `/home/runner/work/Vessel/Vessel/README.md`
-  - `/home/runner/work/Vessel/Vessel/MEMORY.md`
+  - `PLAN.md`
+  - `SPEC.md`
+  - `README.md`
+  - `MEMORY.md`
 
 ## Core Policy Constraints
 

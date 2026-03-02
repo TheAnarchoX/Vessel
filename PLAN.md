@@ -25,6 +25,7 @@ Execution rule:
    - Frame spikes > 22ms should be rare and diagnosable.
 5. **Horror Cohesion**
    - Visual/audio/UI/text/progression all support oppressive tone.
+   - Avoid tonal drift.
 
 ---
 
