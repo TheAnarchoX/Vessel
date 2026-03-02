@@ -1,253 +1,359 @@
-# VESSEL Master Plan (Quality-First Work Log + Execution Roadmap)
+# VESSEL Master Plan (Phased Execution)
 
-This plan intentionally aims for **production-grade quality** across design, gameplay feel, architecture, tooling, performance, stability, and long-term maintainability.
+This roadmap is organized for **serial execution** across phases so quality decisions compound correctly.
 
----
-
-## 0) Product Vision
-
-Create a grim, emotionally coherent top-down roguelite where every system reinforces:
-
-- dread,
-- attrition,
-- moral compromise,
-- escalating possession.
-
-Core principle: **moment-to-moment feel first**, then breadth.
+Execution rule:
+- Complete phases in order unless an explicit dependency exception is approved.
+- Parallel work is allowed only inside a phase when tasks are independent.
+- Every phase must end with validation evidence before moving forward.
 
 ---
 
-## 1) Quality Pillars (Non-Negotiable)
+## Quality Pillars (Apply in Every Phase)
 
 1. **Responsiveness**
    - Input-to-action latency target: < 50ms perceived delay.
    - Movement and shooting must feel immediate and deterministic.
-
 2. **Combat Clarity Under Stress**
-   - Every enemy attack telegraphed and readable within 150–400ms windows.
-   - Damage source attribution always clear (projectile, contact, AoE, trap).
-
+   - Every enemy attack telegraphed/readable in 150–400ms windows.
+   - Damage source attribution always clear.
 3. **Run Variety with Structural Reliability**
-   - Procedural generation should generate distinct tactical situations every run.
+   - Procedural runs should be tactically distinct.
    - No unwinnable seeds.
-
 4. **Performance Stability**
    - 60fps target on mid-range hardware.
-   - Frame spikes > 22ms should be rare and explainable.
-
+   - Frame spikes > 22ms should be rare and diagnosable.
 5. **Horror Cohesion**
-   - Visual, audio, UI, text, and progression all reinforce a single oppressive tone.
-   - Avoid tonal drift.
+   - Visual/audio/UI/text/progression all support oppressive tone.
 
 ---
 
-## 2) Design Backlog (By Discipline)
+## Phase 0 — Foundation, Constraints, and Governance
 
-### 2.1 Core Combat Feel
+### Goal
+Lock down core vision, non-negotiables, and legal/deployment constraints before implementation scale-up.
+
+### Scope
+- Product vision: dread, attrition, moral compromise, possession.
+- Engineering direction: modular architecture, deterministic simulation, maintainability-first.
+- Tech freedom: no single-file and no vanilla-only restriction.
+- Licensing guardrail: dependencies must be free to build with and free to deploy/use.
+
+### Deliverables
+- Canonical vision + architecture intent documented.
+- Dependency/license policy documented and enforceable.
+- Phase gates defined for all subsequent phases.
+
+### Agent Prompt (Phase 0)
+"Audit all docs for scope consistency. Enforce open-stack policy (not single-file/vanilla-only) and free-use/free-deploy licensing constraints. Produce a clean dependency policy and acceptance checklist."
+
+---
+
+## Phase 1 — Core Feel Prototype Hardening
+
+### Goal
+Make minute-1 gameplay feel excellent before broad content expansion.
+
+### Scope
 - [ ] Add acceleration/friction movement tuning profile options.
-- [ ] Add coyote-style “input grace” for shot cadence consistency.
+- [ ] Add coyote-style input grace for shot cadence consistency.
 - [ ] Add hit-stop microfreeze (30–70ms) for impactful hits.
 - [ ] Add optional aim-buffer queue (last directional shot intent).
 - [ ] Expand tear variants (pierce, split, chain, DOT, aura, siphon).
 
-### 2.2 Enemy Design
-- [ ] Formalize enemy behavior model: chase / charge / kite / summon / zone denial.
-- [ ] Add explicit telegraph phases per enemy attack.
-- [ ] Build encounter composition rules (mixed pressures: melee + ranged + area control).
-- [ ] Introduce elite modifiers per floor (faster, armored, cursed, berserk).
+### Exit Criteria
+- Input and attack feedback are consistently responsive and readable.
+- Feel regressions are measurable with baseline metrics.
+
+### Agent Prompt (Phase 1)
+"Tune movement/shooting responsiveness and impact feedback first. Instrument input latency and cadence consistency; reject changes that feel better subjectively but regress objective frame/input metrics."
+
+---
+
+## Phase 2 — Enemy and Encounter Design
+
+### Goal
+Create high-identity enemies and balanced encounter compositions.
+
+### Scope
+- [ ] Formalize behavior model: chase / charge / kite / summon / zone denial.
+- [ ] Add explicit telegraph phases per attack.
+- [ ] Build encounter composition rules (melee + ranged + area control pressure mix).
+- [ ] Introduce elite modifiers (faster, armored, cursed, berserk).
 - [ ] Add AI state debugging overlays for iteration mode.
 
-### 2.3 Boss Design
+### Exit Criteria
+- Encounters are readable but threatening.
+- Difficulty rises through composition, not randomness alone.
+
+### Agent Prompt (Phase 2)
+"Implement enemies with explicit telegraph windows and test compositions under stress scenarios. Use AI overlays and logs to verify behavior contracts."
+
+---
+
+## Phase 3 — Bosses and Phase-State Combat
+
+### Goal
+Deliver memorable bosses with clear escalation and replayable skill tests.
+
+### Scope
 - [ ] Convert boss scripts into explicit phase state machines.
-- [ ] Add difficulty ramp per phase via health thresholds + timers.
-- [ ] Add boss-specific room hazards (pits, sigils, collapsing zones).
-- [ ] Add cinematic intro/outro micro-sequences with input lock windows.
+- [ ] Add phase ramps via health thresholds and timers.
+- [ ] Add boss-room hazards (pits, sigils, collapsing zones).
+- [ ] Add cinematic intro/outro windows with deliberate input locks.
 - [ ] Add boss replay mode for tuning.
 
-### 2.4 Items, Builds, and Synergy
-- [ ] Define item taxonomy: offensive, defensive, utility, economy, corruption tech.
-- [ ] Add synergy matrix (item pairs/triples with explicit emergent behaviors).
+### Exit Criteria
+- Boss phases are distinct, understandable, and escalating.
+- Boss outcomes correlate with mastery, not ambiguity.
+
+### Agent Prompt (Phase 3)
+"Build deterministic boss phase state machines and validate each transition path. Ensure telegraphs, hazard readability, and damage accountability in every phase."
+
+---
+
+## Phase 4 — Itemization, Synergy, and Build Diversity
+
+### Goal
+Enable wide build expression without dead or broken outcomes.
+
+### Scope
+- [ ] Define item taxonomy: offense, defense, utility, economy, corruption-tech.
+- [ ] Add synergy matrix for pairs/triples with explicit emergent behavior.
 - [ ] Add anti-synergy safeguards to avoid dead builds.
 - [ ] Add run-history item tracker for balancing.
-- [ ] Build deterministic seed simulation for item fairness tests.
+- [ ] Build deterministic seed simulation for item fairness.
 
-### 2.5 Corruption & Narrative Systems
-- [ ] Make corruption affect mechanics, audiovisual identity, and room events.
-- [ ] Add whisper system with context-aware lines (boss, low soul, high corruption).
-- [ ] Add narrative beats after each floor clear.
-- [ ] Add conditional endings based on corruption + key choices + relic path.
-- [ ] Add unlock meta-progression tied to endings discovered.
+### Exit Criteria
+- Multiple viable build archetypes per run.
+- Item outcomes are exciting but controllable for balance.
 
-### 2.6 Room & Dungeon Generation
-- [ ] Expand generator to support weighted templates and lock-key progression.
-- [ ] Add spatial pacing rules (intensity valleys/peaks across floor graph).
+### Agent Prompt (Phase 4)
+"Implement item taxonomy + synergy matrix with simulation-driven balancing. Detect and prevent no-op rewards and dead synergies before content expansion."
+
+---
+
+## Phase 5 — Corruption, Narrative, and Progression Identity
+
+### Goal
+Tie systems and story to spiritual erosion, not generic power fantasy.
+
+### Scope
+- [ ] Make corruption affect mechanics, visuals, audio, and events.
+- [ ] Add context-aware whisper system (boss, low soul, high corruption).
+- [ ] Add narrative beats after each floor.
+- [ ] Add conditional endings (corruption + choices + relic path).
+- [ ] Add unlock meta-progression linked to discovered endings.
+
+### Exit Criteria
+- Corruption feels mechanically meaningful and narratively present.
+- Endings reflect player tradeoffs.
+
+### Agent Prompt (Phase 5)
+"Connect corruption to gameplay, AV feedback, and narrative branches. Validate that progression and endings feel earned by player decisions."
+
+---
+
+## Phase 6 — Dungeon Generation and Room Pacing
+
+### Goal
+Make procedural floors reliable, varied, and intentionally paced.
+
+### Scope
+- [ ] Expand generator with weighted templates and lock-key progression.
+- [ ] Add pacing rules (intensity valleys/peaks across floor graph).
 - [ ] Guarantee minimum economy/recovery opportunities per floor.
 - [ ] Add path entropy metrics to prevent linear monotony.
-- [ ] Add generator validator pass with fail-fast re-roll.
+- [ ] Add generator validator with fail-fast reroll.
 
-### 2.7 UX/UI/HUD
-- [ ] Redesign HUD with scalable layout regions and accessibility options.
-- [ ] Add iconography pass for relic categories and status effects.
-- [ ] Add visual priority hierarchy for critical alerts.
-- [ ] Add map readability modes (minimal / tactical / full reveal).
-- [ ] Add tutorialization layer that can be disabled.
+### Exit Criteria
+- No unwinnable seeds.
+- Floor pacing naturally alternates pressure and recovery.
 
-### 2.8 Audio
-- [ ] Build layered adaptive soundtrack states (explore, combat, near death, boss).
-- [ ] Add dynamic reverb/low-pass states based on corruption tier.
-- [ ] Add audio bus architecture (music/sfx/ui/voice/master) with volume controls.
-- [ ] Add audio ducking for key events (boss cues, item pickup stingers).
-- [ ] Add silent mode / reduced intensity mode.
-
-### 2.9 Visual Rendering
-- [ ] Add lighting pass for mood and readability separation.
-- [ ] Add animated shaders/post effects where cost-effective.
-- [ ] Add decal system (blood, residue, corruption growth) with pooling.
-- [ ] Add camera module (shake, recoil, impact zoom, dead-zone controls).
-- [ ] Add palette scripting per floor + dynamic corruption tinting.
+### Agent Prompt (Phase 6)
+"Implement generation constraints and validator passes first, then tune pacing metrics using large seeded batches. Reject seeds that violate reachability/economy constraints."
 
 ---
 
-## 3) Engine & Architecture Plan
+## Phase 7 — Engine Architecture and Toolchain Maturation
 
-### 3.1 Codebase Structure
-- [ ] Migrate to modular architecture (core, gameplay, content, rendering, audio, ui).
-- [ ] Separate data definitions (items/enemies/floors) from behavior logic.
+### Goal
+Migrate from prototype shape to production-ready architecture.
+
+### Scope
+- [ ] Modular structure: core, gameplay, content, rendering, audio, UI.
+- [ ] Separate data definitions from behavior logic.
 - [ ] Add schema validation for content files.
-- [ ] Introduce dependency boundaries to avoid cyclic coupling.
+- [ ] Enforce dependency boundaries and avoid cyclic coupling.
+- [ ] Fixed-step simulation with interpolated rendering.
+- [ ] Record/replay pipeline for deterministic repro.
+- [ ] Event bus for combat/event telemetry.
+- [ ] Formal game-state transition contracts.
+- [ ] Save/resume versioning + migrations.
+- [ ] Add linting, formatting, type checks, pre-commit hooks, CI gates.
+- [ ] Add content validation CLI, balance simulation CLI, benchmark command.
+- [ ] Add dependency/license auditing and THIRD_PARTY_NOTICES tracking.
 
-### 3.2 Simulation Model
-- [ ] Move to fixed-step simulation (`dt` accumulator) for deterministic gameplay.
-- [ ] Keep rendering interpolated for smoothness.
-- [ ] Record/replay pipeline for deterministic bug repro.
-- [ ] Add event bus for combat/event telemetry.
+### Exit Criteria
+- Architecture supports fast iteration without systemic fragility.
+- Tooling catches structural/content regressions early.
 
-### 3.3 State Management
-- [ ] Formalize game states with transition contracts.
-- [ ] Add save/resume snapshot format versioning.
-- [ ] Add migration handlers for content format changes.
-
-### 3.4 Tooling
-- [ ] Introduce linting, formatting, and type checking.
-- [ ] Add pre-commit hooks and CI gates.
-- [ ] Add content validation CLI and balance simulation CLI.
-- [ ] Add performance benchmark command.
-
-### 3.5 Tech Stack Freedom + Free-Use Guardrails
-- [ ] Select stack based on quality/performance needs, not ideological constraints.
-- [ ] Keep all critical dependencies free to use and free to deploy.
-- [ ] Approve only dependencies with permissive or business-safe licenses.
-- [ ] Add automated dependency/license auditing in CI.
-- [ ] Maintain a `THIRD_PARTY_NOTICES` or license inventory document.
+### Agent Prompt (Phase 7)
+"Refactor into strict module boundaries with deterministic simulation and validation tooling. Prioritize debuggability, replayability, and CI-enforced quality gates over short-term velocity."
 
 ---
 
-## 4) Performance & Optimization Plan
+## Phase 8 — Performance, Rendering, and Instrumentation
 
-### 4.1 Runtime Targets
-- [ ] 60fps median; < 5% frames over 20ms in normal play.
-- [ ] Memory stability over 30-minute run.
-- [ ] No unbounded arrays or retained detached objects.
+### Goal
+Sustain stable frame pacing while increasing encounter and VFX complexity.
 
-### 4.2 Optimization Tactics
-- [ ] Object pooling for projectiles/particles/temp vectors.
-- [ ] Spatial partitioning for collision broadphase.
-- [ ] Batched draw calls and minimized state changes.
-- [ ] Avoid per-frame allocations in hot loops.
-- [ ] Lazy update for off-screen/non-critical entities.
+### Scope
+- Runtime targets:
+  - [ ] 60fps median; < 5% frames over 20ms.
+  - [ ] Memory stability over 30-minute run.
+  - [ ] No unbounded arrays or retained detached objects.
+- Optimization tactics:
+  - [ ] Object pooling (projectiles/particles/temp vectors).
+  - [ ] Spatial partitioning for collision broadphase.
+  - [ ] Batched draw calls and minimized state changes.
+  - [ ] Allocation-light hot loops.
+  - [ ] Lazy updates for off-screen/non-critical entities.
+- Instrumentation:
+  - [ ] In-game perf HUD (fps, frame ms, entity counts, draw calls).
+  - [ ] Long-session stress mode.
+  - [ ] Telemetry sampling for frame spikes and GC stalls.
+- Visual work:
+  - [ ] Lighting pass for mood/readability separation.
+  - [ ] Cost-aware shader/post processing.
+  - [ ] Decal system with pooling.
+  - [ ] Camera module (shake/recoil/impact zoom/dead-zone).
+  - [ ] Palette scripting by floor + corruption tinting.
 
-### 4.3 Instrumentation
-- [ ] Build in-game perf HUD (fps, frame ms, entity counts, draw calls).
-- [ ] Add long-session stress test mode.
-- [ ] Add telemetry sampling for frame spikes and GC stalls.
+### Exit Criteria
+- Performance remains stable under peak-content scenarios.
+- Profiling tools explain bottlenecks.
 
----
-
-## 5) Balancing & Analytics
-
-- [ ] Define baseline run duration target (20–30 min).
-- [ ] Build automated combat simulator for TTK and survivability curves.
-- [ ] Track per-floor death causes and win rates.
-- [ ] Tune drop rates, soul economy, and corruption trade-off tension.
-- [ ] Use heatmaps for player movement and death density.
-
----
-
-## 6) Stability, QA, and Testing
-
-### 6.1 Automated Tests
-- [ ] Generator tests (reachability, room constraints, role placement).
-- [ ] Combat math tests (damage, invulnerability, resistances).
-- [ ] Item effect tests and stacking edge cases.
-- [ ] Save/load compatibility tests.
-- [ ] Determinism tests for seeded runs.
-
-### 6.2 Manual QA Matrices
-- [ ] Input device matrix.
-- [ ] Resolution/scaling matrix.
-- [ ] Browser compatibility matrix.
-- [ ] Accessibility checks (contrast, motion reduction options).
-
-### 6.3 Bug Triage Rules
-- [ ] Crash / progression block = P0.
-- [ ] Input or combat feel regression = P1.
-- [ ] Visual/audio polish bug = P2 unless readability impact.
+### Agent Prompt (Phase 8)
+"Profile before optimizing. Eliminate hotspot allocations, stabilize frame pacing, and keep rendering readability-first under heavy combat load."
 
 ---
 
-## 7) Accessibility & Options
+## Phase 9 — UX, Accessibility, and Audio Cohesion
 
-- [ ] Rebindable controls.
-- [ ] Colorblind-safe corruption indicator mode.
-- [ ] Screen shake intensity slider / disable toggle.
-- [ ] Flash reduction toggle.
-- [ ] Subtitles and text scaling options.
-- [ ] Audio intensity profile selector.
+### Goal
+Improve readability, comfort, and emotional impact without diluting horror tone.
 
----
+### Scope
+- UX/UI:
+  - [ ] Redesign HUD with scalable layout regions.
+  - [ ] Add iconography for relic/status categories.
+  - [ ] Add visual priority hierarchy for critical alerts.
+  - [ ] Add minimap modes (minimal/tactical/full).
+  - [ ] Add optional tutorialization layer.
+- Accessibility:
+  - [ ] Rebindable controls.
+  - [ ] Colorblind-safe corruption indicators.
+  - [ ] Screen shake intensity slider/disable.
+  - [ ] Flash reduction toggle.
+  - [ ] Subtitles and text scaling.
+  - [ ] Audio intensity profile selector.
+- Audio:
+  - [ ] Layered adaptive soundtrack states.
+  - [ ] Corruption-based reverb/low-pass dynamics.
+  - [ ] Audio bus architecture (music/sfx/ui/voice/master).
+  - [ ] Event-driven ducking for critical cues.
+  - [ ] Silent/reduced-intensity mode.
 
-## 8) Content Production Pipeline
+### Exit Criteria
+- Players can parse critical state quickly.
+- Accessibility options reduce friction while preserving intent.
 
-- [ ] Content authoring templates for enemies/items/rooms/events.
-- [ ] Flavor text review pass for tone consistency.
-- [ ] Build verification checks for missing assets/content IDs.
-- [ ] Localization-ready text extraction strategy.
-
----
-
-## 9) Release Strategy
-
-### Alpha
-- [ ] One complete floor with polished feel and one boss.
-- [ ] Core systems validated (combat, rooms, items, HUD, corruption).
-
-### Beta
-- [ ] All floors playable end-to-end.
-- [ ] Performance and balance pass complete.
-- [ ] Save/load + options + accessibility in place.
-
-### 1.0
-- [ ] Content complete.
-- [ ] QA sign-off.
-- [ ] Telemetry-informed final rebalance.
-- [ ] Documentation and contribution guide complete.
+### Agent Prompt (Phase 9)
+"Prioritize HUD readability and accessibility toggles that preserve game tone. Validate audio/visual alert hierarchy under high action density."
 
 ---
 
-## 10) Legal/License Readiness Checklist
+## Phase 10 — QA, Balancing, and Content Production Readiness
 
-- [ ] Confirm engine/framework/runtime license allows free distribution.
-- [ ] Confirm art/audio/font assets are original, licensed, or public domain.
-- [ ] Confirm no copyleft contamination in shipping bundle unless explicitly intended.
-- [ ] Confirm attribution obligations are satisfied in credits or notices.
-- [ ] Confirm deployment platform terms are compatible with selected dependencies.
+### Goal
+Make the game robust, tunable, and scalable for content growth.
+
+### Scope
+- Balancing/analytics:
+  - [ ] Baseline run duration target (20–30 min).
+  - [ ] Combat simulator for TTK/survivability curves.
+  - [ ] Track floor death causes and win rates.
+  - [ ] Tune drops, soul economy, corruption tradeoff.
+  - [ ] Build movement/death heatmaps.
+- Test strategy:
+  - [ ] Generator tests (reachability/constraints/roles).
+  - [ ] Combat math tests.
+  - [ ] Item effect + stacking edge-case tests.
+  - [ ] Save/load compatibility tests.
+  - [ ] Determinism tests for seeded runs.
+- Manual QA matrices:
+  - [ ] Input device matrix.
+  - [ ] Resolution/scaling matrix.
+  - [ ] Browser compatibility matrix.
+  - [ ] Accessibility checks.
+- Bug triage:
+  - [ ] Crash/progression block = P0.
+  - [ ] Input/combat feel regression = P1.
+  - [ ] Visual/audio polish issue = P2 unless readability-critical.
+- Content pipeline:
+  - [ ] Authoring templates for enemies/items/rooms/events.
+  - [ ] Flavor-text tone consistency pass.
+  - [ ] Build verification for missing IDs/assets.
+  - [ ] Localization-ready text extraction.
+
+### Exit Criteria
+- Reliable quality gates are in place.
+- Balance iteration is data-informed.
+
+### Agent Prompt (Phase 10)
+"Build repeatable QA and balancing loops with deterministic tests + simulation data. Require measurable evidence for balance and stability changes."
 
 ---
 
-## 11) Current Progress Snapshot
+## Phase 11 — Release Management and Compliance
+
+### Goal
+Ship in controlled stages with legal confidence and operational readiness.
+
+### Scope
+- Alpha:
+  - [ ] One polished floor + one boss.
+  - [ ] Core systems validated (combat, rooms, items, HUD, corruption).
+- Beta:
+  - [ ] Full floor progression playable end-to-end.
+  - [ ] Performance and balance pass complete.
+  - [ ] Save/load + options + accessibility in place.
+- 1.0:
+  - [ ] Content complete.
+  - [ ] QA sign-off.
+  - [ ] Telemetry-informed final rebalance.
+  - [ ] Documentation and contribution guide complete.
+- Legal/license readiness:
+  - [ ] Engine/framework/runtime allows free distribution.
+  - [ ] Art/audio/font assets are original/licensed/public-domain.
+  - [ ] No unintended copyleft contamination.
+  - [ ] Attribution obligations satisfied.
+  - [ ] Deployment platform terms compatible with dependencies.
+
+### Exit Criteria
+- Release artifacts, docs, and compliance checks are complete.
+- Deployment can proceed without licensing or quality blockers.
+
+### Agent Prompt (Phase 11)
+"Prepare staged release candidates with QA evidence, telemetry-backed balance, and full license/compliance verification for free deployment."
+
+---
+
+## Current Progress Snapshot
 
 - [x] Initial playable prototype exists.
 - [x] Baseline dungeon/combat/item/corruption loop implemented.
-- [x] Initial design and memory documentation present.
+- [x] Initial design/spec/memory documentation present.
 - [ ] Architecture modernization (modularization/tooling) pending.
 - [ ] Quality, performance, and production pipelines pending.
