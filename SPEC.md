@@ -4,12 +4,12 @@
 
 Build **VESSEL** as a browser-based, top-down 2D roguelite in a **single HTML file** using vanilla JavaScript and Canvas only.
 
-## Technical Constraints
+## Technical Direction (Revised)
 
-- One-file architecture (`index.html`).
-- Canvas resolution: `960x540`, scaled to viewport.
-- No external libraries, frameworks, spritesheets, or build pipeline.
-- Pixel-art visuals with `ctx.imageSmoothingEnabled = false`.
+- The project is no longer constrained to a single file.
+- The implementation is no longer constrained to vanilla-only JavaScript.
+- The current prototype is Canvas-based at `960x540`, but architecture should allow scaling, module separation, and tooling evolution.
+- Pixel-art readability and horror atmosphere remain core visual constraints regardless of stack.
 
 ## Core Gameplay Structure
 
@@ -21,6 +21,30 @@ Build **VESSEL** as a browser-based, top-down 2D roguelite in a **single HTML fi
    - Floor 4: The Pit
 3. Room types include combat, altar, confession, reliquary, and boss rooms.
 4. Doors lock on combat and unlock on clear.
+
+## Engineering Philosophy
+
+- Build for maintainability first: modular systems, testable logic, and data-driven content.
+- Separate simulation from presentation so combat remains deterministic under rendering fluctuations.
+- Use tooling and frameworks pragmatically where they improve reliability, performance, or developer velocity.
+- Keep content pipelines explicit (schema-validated enemy/item/room definitions).
+- Favor instrumentation and profiling over guesswork for optimization decisions.
+
+## Engine/System Architecture Goals
+
+- **Core loop layer**: state machine, fixed-step simulation, transitions, save/load.
+- **Gameplay layer**: entities, combat, AI, items, corruption, progression.
+- **World layer**: dungeon generation, room rules, events, encounter composition.
+- **Presentation layer**: rendering, camera, VFX, UI/HUD, accessibility options.
+- **Audio layer**: adaptive music states, SFX buses, dynamic intensity controls.
+- **Content layer**: externalized data definitions and balance tables.
+
+## Performance Goals
+
+- Target 60fps median with predictable frame pacing.
+- Keep hot loops allocation-light and data-oriented.
+- Use pooling, culling, and broadphase collision techniques as needed.
+- Include in-game performance telemetry for real hardware validation.
 
 ## Input Model
 
