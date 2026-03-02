@@ -26,8 +26,11 @@
     }
   </style>
 </head>
-<body>
+  <body>
   <canvas id="game" width="960" height="540"></canvas>
+  <script src="src/core/fixedStep.js"></script>
+  <script src="src/gameplay/feelMetrics.js"></script>
+  <script src="src/engine/runtime.js"></script>
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -37,11 +40,16 @@
     const ROOM_PX_W = ROOM_W * TILE, ROOM_PX_H = ROOM_H * TILE;
     const ROOM_X = (W - ROOM_PX_W) / 2, ROOM_Y = (H - ROOM_PX_H) / 2;
     const FLOOR_NAMES = ["The Nave", "The Catacombs", "The Ossuary", "The Pit"];
+    const MOVE_TUNING = { accel: 1200, friction: 7.5 };
+    const SHOT_INTENT_GRACE_MS = 120;
+    const HIT_STOP_MS = 45;
+    const FEEL_TARGETS = { maxP95InputLatencyMs: 130, maxCadenceErrorRatio: 0.2, minSamples: 8 };
 
     const keys = new Set(), pressed = new Set();
     addEventListener("keydown", (e) => {
       if (!keys.has(e.code)) pressed.add(e.code);
       keys.add(e.code);
+      queueShotIntent(e.code, performance.now());
       if (["Tab","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
       initAudio();
     });
@@ -77,10 +85,42 @@
 
     function randomOf(a){ return a[(Math.random()*a.length)|0]; }
     function makePlayer() {
-      return { x: W/2, y: H/2, r: 11, soul: 6, maxSoul: 6, corruption: 0, tears: 1.5, damage: 1, speed: 180, range: 400, shotSpeed: 320, damageReduction: 0, inv: 0, fireCd: 0, items: [], extraLife: 0, pierce: false, slow: false };
+      return { x: W/2, y: H/2, vx: 0, vy: 0, accel: MOVE_TUNING.accel, friction: MOVE_TUNING.friction, r: 11, soul: 6, maxSoul: 6, corruption: 0, tears: 1.5, damage: 1, speed: 180, range: 400, shotSpeed: 320, damageReduction: 0, inv: 0, fireCd: 0, items: [], extraLife: 0, pierce: false, slow: false };
     }
 
-    const G = { state: "title", floor: 0, dungeon: null, room: null, player: null, shots: [], enemyShots: [], msg: "", msgT: 0, mapOpen: false, flash: 0, shake: 0, endingTitle: "", endingLine: "" };
+    const G = {
+      state: "title", floor: 0, dungeon: null, room: null, player: null, shots: [], enemyShots: [],
+      msg: "", msgT: 0, mapOpen: false, flash: 0, shake: 0, endingTitle: "", endingLine: "",
+      hitStop: 0, shotIntent: null, feelMetrics: VesselGameplay.createFeelMetrics(), feelFailures: []
+    };
+
+    function dirForKey(code) {
+      if (code === "ArrowUp") return { sx: 0, sy: -1 };
+      if (code === "ArrowDown") return { sx: 0, sy: 1 };
+      if (code === "ArrowLeft") return { sx: -1, sy: 0 };
+      if (code === "ArrowRight") return { sx: 1, sy: 0 };
+      return null;
+    }
+    function queueShotIntent(code, nowMs) {
+      const dir = dirForKey(code);
+      if (!dir) return;
+      G.shotIntent = { ...dir, at: nowMs };
+    }
+    function readHeldAim(nowMs) {
+      let sx=0, sy=0;
+      if (keys.has("ArrowUp")) sy=-1; else if (keys.has("ArrowDown")) sy=1; else if (keys.has("ArrowLeft")) sx=-1; else if (keys.has("ArrowRight")) sx=1;
+      if ((sx || sy) && !G.shotIntent) G.shotIntent = { sx, sy, at: nowMs };
+    }
+    function firePlayerShot(intent, nowMs) {
+      const p = G.player;
+      p.fireCd = 1 / p.tears; sfxFire();
+      G.shots.push({x:p.x,y:p.y,vx:intent.sx*p.shotSpeed,vy:intent.sy*p.shotSpeed,life:p.range/p.shotSpeed,damage:p.damage,pierce:p.pierce,slow:p.slow,color:tearColor()});
+      VesselGameplay.recordShot(G.feelMetrics, nowMs, intent.at, 1000 / p.tears);
+      const summary = VesselGameplay.summarizeFeel(G.feelMetrics);
+      G.feelFailures = VesselGameplay.evaluateFeel(summary, FEEL_TARGETS);
+      const stillHeld = (intent.sy === -1 && keys.has("ArrowUp")) || (intent.sy === 1 && keys.has("ArrowDown")) || (intent.sx === -1 && keys.has("ArrowLeft")) || (intent.sx === 1 && keys.has("ArrowRight"));
+      G.shotIntent = stillHeld ? { sx: intent.sx, sy: intent.sy, at: nowMs } : null;
+    }
 
     function createDungeon(floor) {
       const grid = Array.from({length: 5}, () => Array(5).fill(null));
@@ -207,20 +247,24 @@
       const p = G.player;
       if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
       p.inv = Math.max(0,p.inv-dt); p.fireCd -= dt;
+      if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); return; }
       let mx=(keys.has("KeyD")?1:0)-(keys.has("KeyA")?1:0), my=(keys.has("KeyS")?1:0)-(keys.has("KeyW")?1:0);
-      const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml; p.x += mx*p.speed*dt; p.y += my*p.speed*dt;
+      const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml;
+      p.vx += mx * p.accel * dt; p.vy += my * p.accel * dt;
+      const drag = Math.max(0, 1 - p.friction * dt);
+      p.vx *= drag; p.vy *= drag;
+      const speed = Math.hypot(p.vx, p.vy);
+      if (speed > p.speed) { p.vx = (p.vx / speed) * p.speed; p.vy = (p.vy / speed) * p.speed; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
       const l=ROOM_X+TILE, r=ROOM_X+ROOM_PX_W-TILE, t=ROOM_Y+TILE, b=ROOM_Y+ROOM_PX_H-TILE;
       if (p.x<l){ if(G.room.doors.l&&Math.abs(p.y-H/2)<70&&p.x<ROOM_X+8) transition("l"); p.x=l; }
       if (p.x>r){ if(G.room.doors.r&&Math.abs(p.y-H/2)<70&&p.x>ROOM_X+ROOM_PX_W-8) transition("r"); p.x=r; }
       if (p.y<t){ if(G.room.doors.u&&Math.abs(p.x-W/2)<70&&p.y<ROOM_Y+8) transition("u"); p.y=t; }
       if (p.y>b){ if(G.room.doors.d&&Math.abs(p.x-W/2)<70&&p.y>ROOM_Y+ROOM_PX_H-8) transition("d"); p.y=b; }
-
-      let sx=0, sy=0;
-      if (keys.has("ArrowUp")) sy=-1; else if (keys.has("ArrowDown")) sy=1; else if (keys.has("ArrowLeft")) sx=-1; else if (keys.has("ArrowRight")) sx=1;
-      if ((sx||sy) && p.fireCd<=0) {
-        p.fireCd = 1/p.tears; sfxFire();
-        G.shots.push({x:p.x,y:p.y,vx:sx*p.shotSpeed,vy:sy*p.shotSpeed,life:p.range/p.shotSpeed,damage:p.damage,pierce:p.pierce,slow:p.slow,color:tearColor()});
-      }
+      const nowMs = performance.now();
+      readHeldAim(nowMs);
+      if (G.shotIntent && (nowMs - G.shotIntent.at) > SHOT_INTENT_GRACE_MS) G.shotIntent = null;
+      if (G.shotIntent && p.fireCd<=0) firePlayerShot(G.shotIntent, nowMs);
 
       for (const arr of [G.shots,G.enemyShots]) for (let i=arr.length-1;i>=0;i--) {
         const s=arr[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; s.life-=dt;
@@ -232,6 +276,8 @@
         const s=G.shots[i];
         for (const e of G.room.enemies) if (e.hp>0 && Math.hypot(s.x-e.x,s.y-e.y)<e.r+5) {
           e.hp-=s.damage; if (s.slow) e.slowT=0.7; sfxHit();
+          G.hitStop = Math.max(G.hitStop, HIT_STOP_MS / 1000);
+          VesselGameplay.recordHitstop(G.feelMetrics, HIT_STOP_MS);
           if (!s.pierce) { G.shots.splice(i,1); break; }
         }
       }
@@ -353,6 +399,9 @@
       ctx.fillStyle=p.corruption<50?"#b5a54a":p.corruption<75?"#9f3535":"#290b18"; ctx.fillRect(W-248,26,180*Math.min(1,p.corruption/100),12);
       ctx.fillStyle="#d8d0c2"; ctx.fillText(`ACTIVE: NONE`,16,H-28); ctx.fillText(`FLOOR: ${FLOOR_NAMES[G.floor]}`,W-225,H-28);
       ctx.fillText("ITEMS: "+(p.items.slice(-4).join(" | ")||"NONE"),16,H-10);
+      const feelSummary = VesselGameplay.summarizeFeel(G.feelMetrics);
+      ctx.fillStyle = G.feelFailures.length ? "#d87070" : "#8acb8a";
+      ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
       const mx=W-145,my=H-49;
       for (const r of G.dungeon.rooms) { const x=mx+(r.x-2)*14,y=my+(r.y-2)*14; ctx.fillStyle=r===G.room?"#f0d477":(r.visited||p.mapReveal?"#8b6d7c":"#291723"); ctx.fillRect(x,y,10,10); }
       if (G.msgT>0) { ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,50); }
@@ -414,12 +463,13 @@
       ctx.setTransform(1,0,0,1,0,0);
     }
 
-    let last = performance.now();
-    function loop(now){
-      const dt = Math.min(0.033, (now-last)/1000); last = now;
-      update(dt); render(); requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
+    const runtime = VesselEngine.createEngineRuntime({
+      fixedDt: 1 / 120,
+      maxSubSteps: 8,
+      update,
+      render,
+    });
+    runtime.start();
   </script>
 </body>
 </html>
