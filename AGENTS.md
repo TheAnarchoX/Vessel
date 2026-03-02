@@ -58,7 +58,7 @@ This file provides repository-specific execution guidance for human/AI agents wo
 "Audit docs for open-stack + free-deploy consistency. Finalize policy constraints and acceptance gates."
 
 ### Phase 1 Prompt
-"Tune core movement/shooting feel with measurable latency/cadence metrics and no readability regressions."
+"Establish the initial engine base first, then tune core movement/shooting feel with measurable latency/cadence metrics and no readability regressions."
 
 ### Phase 2 Prompt
 "Implement enemy telegraphs and encounter composition contracts; verify with AI debug overlays."
@@ -76,7 +76,7 @@ This file provides repository-specific execution guidance for human/AI agents wo
 "Enforce generator constraints first, then tune pacing with seeded-batch validation."
 
 ### Phase 7 Prompt
-"Refactor to modular deterministic architecture with tooling and CI enforcement."
+"Mature the Phase 1 engine base into modular deterministic architecture with tooling and CI enforcement."
 
 ### Phase 8 Prompt
 "Profile-first optimization: stabilize frame pacing, eliminate hot-loop allocations, improve observability."
