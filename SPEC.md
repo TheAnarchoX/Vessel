@@ -2,7 +2,7 @@
 
 ## Product Goal
 
-Build **VESSEL** as a browser-based, top-down 2D roguelite in a **single HTML file** using vanilla JavaScript and Canvas only.
+Build **VESSEL** as a browser-based, top-down 2D roguelite with a strong horror identity, high gameplay quality, and production-ready engineering.
 
 ## Technical Direction (Revised)
 
@@ -10,6 +10,14 @@ Build **VESSEL** as a browser-based, top-down 2D roguelite in a **single HTML fi
 - The implementation is no longer constrained to vanilla-only JavaScript.
 - The current prototype is Canvas-based at `960x540`, but architecture should allow scaling, module separation, and tooling evolution.
 - Pixel-art readability and horror atmosphere remain core visual constraints regardless of stack.
+
+## Licensing & Deployment Policy (Free-Use Requirement)
+
+- Any selected engine, framework, or toolchain must be free to use for development and free deployment.
+- Prefer permissive licenses (MIT, BSD, Apache-2.0, Zlib, ISC).
+- Avoid dependencies with viral or restrictive commercial clauses that could complicate free deployment.
+- Track dependency licenses in a machine-readable manifest and verify during CI.
+- Avoid proprietary lock-in for core runtime systems.
 
 ## Core Gameplay Structure
 

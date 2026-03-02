@@ -133,6 +133,13 @@ Core principle: **moment-to-moment feel first**, then breadth.
 - [ ] Add content validation CLI and balance simulation CLI.
 - [ ] Add performance benchmark command.
 
+### 3.5 Tech Stack Freedom + Free-Use Guardrails
+- [ ] Select stack based on quality/performance needs, not ideological constraints.
+- [ ] Keep all critical dependencies free to use and free to deploy.
+- [ ] Approve only dependencies with permissive or business-safe licenses.
+- [ ] Add automated dependency/license auditing in CI.
+- [ ] Maintain a `THIRD_PARTY_NOTICES` or license inventory document.
+
 ---
 
 ## 4) Performance & Optimization Plan
@@ -227,7 +234,17 @@ Core principle: **moment-to-moment feel first**, then breadth.
 
 ---
 
-## 10) Current Progress Snapshot
+## 10) Legal/License Readiness Checklist
+
+- [ ] Confirm engine/framework/runtime license allows free distribution.
+- [ ] Confirm art/audio/font assets are original, licensed, or public domain.
+- [ ] Confirm no copyleft contamination in shipping bundle unless explicitly intended.
+- [ ] Confirm attribution obligations are satisfied in credits or notices.
+- [ ] Confirm deployment platform terms are compatible with selected dependencies.
+
+---
+
+## 11) Current Progress Snapshot
 
 - [x] Initial playable prototype exists.
 - [x] Baseline dungeon/combat/item/corruption loop implemented.
