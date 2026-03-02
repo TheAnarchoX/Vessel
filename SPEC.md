@@ -19,6 +19,40 @@ Build **VESSEL** as a browser-based, top-down 2D roguelite with a strong horror 
 - Track dependency licenses in a machine-readable manifest and verify during CI.
 - Avoid proprietary lock-in for core runtime systems.
 
+## Phase 0 Policy Verification (Planner + Compliance Audit)
+
+### Technical Direction (Revised) Verification
+
+- **Verified** against `README.md` project direction: modular architecture and flexible stack are allowed.
+- **Verified** against `AGENTS.md` Core Policy Constraints: stack freedom explicitly removes single-file/vanilla-only limits.
+- **Verified** against `MEMORY.md` Agentic Memory Notes: open-stack direction is retained as active project memory.
+
+### Licensing & Deployment Policy Verification
+
+- **Verified** against `README.md` and `AGENTS.md`: dependencies/tooling must remain free to build with and free to deploy/use.
+- **Verified** against `MEMORY.md`: compliance memory tracks the same free-use and free-deploy rule.
+- **Verified** against `PLAN.md` Phase 0 and Phase 11 prompts: license/deployment readiness must be enforced with evidence before release approval.
+
+## Reusable Phase Acceptance Gates
+
+Every phase change should pass all gates below before handoff:
+
+1. **Scope Gate**: change maps to the active phase prompt in `PLAN.md` and does not bypass serial phase order without explicit exception.
+2. **Policy Gate**: work remains consistent with this spec's Technical Direction (Revised) and Licensing & Deployment Policy.
+3. **Validation Gate**: changed behavior is validated with reproducible evidence (test output, command logs, traces, seed runs, or equivalent).
+4. **PR Evidence Gate**: evidence format follows `AGENTS.md` (UI screenshots, non-UI verification artifacts, benchmark output for performance changes, ADR for architecture changes).
+5. **Documentation Gate**: policy/architecture direction changes are synchronized in `README.md`, `SPEC.md`, and `MEMORY.md` as applicable.
+
+## Dependency-Policy Checklist (PR-Verifiable)
+
+Use this checklist for any dependency/tooling introduction or update:
+
+- [ ] Dependency/tool is free for development use and free for deployment/distribution use.
+- [ ] License is permissive or otherwise business-safe for free deployment; no restrictive commercial clause blocks release.
+- [ ] License decision and version are recorded in a machine-readable manifest.
+- [ ] CI or scripted checks validate license policy compliance for the changed dependency set.
+- [ ] PR includes compliance evidence (command/log output and, when needed, notices/ADR updates).
+
 ## Core Gameplay Structure
 
 1. Title screen and run start.
