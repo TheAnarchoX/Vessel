@@ -6,6 +6,7 @@
 - Tech stack can evolve (including engines/frameworks) if dependencies remain free to build with and free to deploy.
 - Master roadmap is now phase-driven (serial-first execution) with per-phase agent prompts in `PLAN.md`.
 - Repository includes `AGENTS.md` with role guidance and a requirement to include screenshots for UI changes in PRs.
+- PR evidence policy now requires non-UI validation artifacts, benchmark output for performance work, and ADRs under `docs/decisions` (Mermaid encouraged).
 - Rendering target is Canvas `960x540` with crisp pixel rendering (`imageSmoothingEnabled = false`).
 - Core loop is Isaac-like: title → floor progression with rooms → bosses → ending variants.
 - Input is keyboard-first (WASD movement, arrows shoot, E interact, Tab overlay).

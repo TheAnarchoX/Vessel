@@ -44,6 +44,7 @@ Lock down core vision, non-negotiables, and legal/deployment constraints before 
 - Canonical vision + architecture intent documented.
 - Dependency/license policy documented and enforceable.
 - Phase gates defined for all subsequent phases.
+- Evidence policy for PR validation documented (UI screenshots, benchmark outputs, and non-UI verification artifacts).
 
 ### Agent Prompt (Phase 0)
 "Audit all docs for scope consistency. Enforce open-stack policy (not single-file/vanilla-only) and free-use/free-deploy licensing constraints. Produce a clean dependency policy and acceptance checklist."
@@ -194,6 +195,7 @@ Migrate from prototype shape to production-ready architecture.
 - [ ] Add linting, formatting, type checks, pre-commit hooks, CI gates.
 - [ ] Add content validation CLI, balance simulation CLI, benchmark command.
 - [ ] Add dependency/license auditing and THIRD_PARTY_NOTICES tracking.
+- [ ] Document architecture decisions as ADRs in `docs/decisions` (Mermaid diagrams where useful).
 
 ### Exit Criteria
 - Architecture supports fast iteration without systemic fragility.

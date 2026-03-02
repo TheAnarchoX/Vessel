@@ -24,6 +24,7 @@ This file provides repository-specific execution guidance for human/AI agents wo
 - Execute phases mostly in serial (Phase N before N+1).
 - Within a phase, parallelize only independent tasks.
 - Require validation evidence before phase handoff.
+- Prefer Mermaid diagrams in documentation when they improve clarity (flows, state machines, architecture, timelines).
 
 ## Agent Roles
 
@@ -97,3 +98,13 @@ This file provides repository-specific execution guidance for human/AI agents wo
 - Document any policy or architecture implications.
 - Keep docs synchronized when direction shifts.
 - If the change includes UI work, include screenshots in the pull request.
+- If the change is non-UI, include concrete evidence in the pull request (test output, command logs, traces, or equivalent artifacts).
+- If the change is performance-related, include benchmark evidence (script/command used + captured output).
+- Record architecture decisions in `docs/decisions/*.md`, using Mermaid where helpful.
+
+## Evidence Expectations (PRs)
+
+- **UI changes**: screenshots (or short capture) showing before/after impact.
+- **Logic/bugfix changes**: relevant test/lint/run output.
+- **Performance changes**: benchmark script/command + output summary.
+- **Architecture changes**: ADR in `docs/decisions` with rationale, alternatives, and impact.
