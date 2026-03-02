@@ -54,9 +54,10 @@ Lock down core vision, non-negotiables, and legal/deployment constraints before 
 ## Phase 1 — Core Feel Prototype Hardening
 
 ### Goal
-Make minute-1 gameplay feel excellent before broad content expansion.
+Make minute-1 gameplay feel excellent while establishing the engine foundation early.
 
 ### Scope
+- [ ] Establish initial engine base in `src/` (core/gameplay boundaries + fixed-step simulation skeleton) before broad feature expansion.
 - [ ] Add acceleration/friction movement tuning profile options.
 - [ ] Add coyote-style input grace for shot cadence consistency.
 - [ ] Add hit-stop microfreeze (30–70ms) for impactful hits.
@@ -68,7 +69,7 @@ Make minute-1 gameplay feel excellent before broad content expansion.
 - Feel regressions are measurable with baseline metrics.
 
 ### Agent Prompt (Phase 1)
-"For Phase 1 (Core Feel Prototype Hardening): act as Gameplay + QA agents and harden minute-1 feel in `index.html` (or future `src/` gameplay modules) with measurable responsiveness targets. In `SPEC.md`, use `Input Model`, `Player Systems`, and `Combat Philosophy` as the baseline for movement/shot cadence behavior and hit readability. Instrument latency/cadence metrics, block objective regressions, and capture deterministic evidence via `bash` output + `report_progress` artifacts."
+"For Phase 1 (Core Feel Prototype Hardening): act as Gameplay + Engine + QA agents and establish a minimal engine base in `src/` first (core/gameplay boundaries + fixed-step simulation skeleton), then harden minute-1 feel with measurable responsiveness targets. In `SPEC.md`, use `Input Model`, `Player Systems`, `Combat Philosophy`, and `Engine/System Architecture Goals` as the baseline for movement/shot cadence behavior, deterministic flow, and hit readability. Instrument latency/cadence metrics, block objective regressions, and capture deterministic evidence via `bash` output + `report_progress` artifacts."
 
 ---
 
@@ -180,7 +181,7 @@ Make procedural floors reliable, varied, and intentionally paced.
 ## Phase 7 — Engine Architecture and Toolchain Maturation
 
 ### Goal
-Migrate from prototype shape to production-ready architecture.
+Mature and enforce the early engine foundation into production-ready architecture/tooling.
 
 ### Scope
 - [ ] Modular structure: core, gameplay, content, rendering, audio, UI.
@@ -202,7 +203,7 @@ Migrate from prototype shape to production-ready architecture.
 - Tooling catches structural/content regressions early.
 
 ### Agent Prompt (Phase 7)
-"For Phase 7 (Engine Architecture and Toolchain Maturation): act as Engine + Planner agents and refactor from prototype structure into strict module boundaries (core/gameplay/content/rendering/audio/UI) with deterministic simulation contracts. Follow `SPEC.md` `Engine/System Architecture Goals` and `Engineering Philosophy`, capture decisions in `docs/decisions/*.md` (Mermaid where useful), and wire validation tooling/CI gates for lint/type/content/schema/replay checks. Prioritize debuggability and boundary enforcement over short-term velocity."
+"For Phase 7 (Engine Architecture and Toolchain Maturation): act as Engine + Planner agents and mature the Phase 1 engine base into strict module boundaries (core/gameplay/content/rendering/audio/UI) with deterministic simulation contracts and full toolchain enforcement. Follow `SPEC.md` `Engine/System Architecture Goals` and `Engineering Philosophy`, capture decisions in `docs/decisions/*.md` (Mermaid where useful), and wire validation tooling/CI gates for lint/type/content/schema/replay checks. Prioritize debuggability and boundary enforcement over short-term velocity."
 
 ---
 
