@@ -3,6 +3,8 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.VesselCore = Object.assign(root.VesselCore || {}, api);
 })(typeof globalThis !== "undefined" ? globalThis : window, function () {
+  const MAX_FRAME_DT = 0.05;
+
   function advanceFixedStep(state, frameDt, step, fixedDt, maxSubSteps) {
     state.accumulator += frameDt;
     let steps = 0;
@@ -25,7 +27,7 @@
     let lastNow = performance.now();
 
     function tick(now) {
-      const frameDt = Math.min(0.05, (now - lastNow) / 1000);
+      const frameDt = Math.min(MAX_FRAME_DT, (now - lastNow) / 1000);
       lastNow = now;
       advanceFixedStep(state, frameDt, step, fixedDt, maxSubSteps);
       render(state.accumulator / fixedDt);

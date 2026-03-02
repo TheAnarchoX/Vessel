@@ -6,6 +6,7 @@
   const DEFAULT_FEEL_TARGETS = {
     maxP95InputLatencyMs: 130,
     maxCadenceErrorRatio: 0.2,
+    expectedCadenceMs: 1000 / 1.5,
     minSamples: 8,
   };
 
@@ -19,7 +20,7 @@
   function createFeelMetrics() {
     return {
       shotLatenciesMs: [],
-      shotCadencesMs: [],
+      shotCadenceErrorsMs: [],
       hitstopMs: [],
       lastShotAtMs: null,
     };
@@ -30,7 +31,7 @@
       metrics.shotLatenciesMs.push(Math.max(0, nowMs - intentAtMs));
     }
     if (typeof metrics.lastShotAtMs === "number") {
-      metrics.shotCadencesMs.push(Math.max(0, nowMs - metrics.lastShotAtMs - expectedCadenceMs));
+      metrics.shotCadenceErrorsMs.push(nowMs - metrics.lastShotAtMs - expectedCadenceMs);
     }
     metrics.lastShotAtMs = nowMs;
   }
@@ -44,8 +45,8 @@
       ? metrics.shotLatenciesMs.reduce((a, b) => a + b, 0) / metrics.shotLatenciesMs.length
       : 0;
     const p95Latency = percentile(metrics.shotLatenciesMs, 0.95);
-    const cadenceErrorAvg = metrics.shotCadencesMs.length
-      ? metrics.shotCadencesMs.reduce((a, b) => a + Math.abs(b), 0) / metrics.shotCadencesMs.length
+    const cadenceErrorAvg = metrics.shotCadenceErrorsMs.length
+      ? metrics.shotCadenceErrorsMs.reduce((a, b) => a + Math.abs(b), 0) / metrics.shotCadenceErrorsMs.length
       : 0;
     return {
       samples: metrics.shotLatenciesMs.length,
@@ -59,14 +60,15 @@
   }
 
   function evaluateFeel(summary, targets = DEFAULT_FEEL_TARGETS) {
+    const thresholds = Object.assign({}, DEFAULT_FEEL_TARGETS, targets);
     const failures = [];
-    if (summary.samples >= targets.minSamples) {
-      if (summary.latencyP95Ms > targets.maxP95InputLatencyMs) {
-        failures.push(`input-latency-p95>${targets.maxP95InputLatencyMs}ms`);
+    if (summary.samples >= thresholds.minSamples) {
+      if (summary.latencyP95Ms > thresholds.maxP95InputLatencyMs) {
+        failures.push(`input-latency-p95>${thresholds.maxP95InputLatencyMs}ms`);
       }
-      const cadenceErrorRatio = summary.cadenceErrorAvgMs / (1000 / 1.5);
-      if (cadenceErrorRatio > targets.maxCadenceErrorRatio) {
-        failures.push(`cadence-error-ratio>${targets.maxCadenceErrorRatio.toFixed(2)}`);
+      const cadenceErrorRatio = summary.cadenceErrorAvgMs / thresholds.expectedCadenceMs;
+      if (cadenceErrorRatio > thresholds.maxCadenceErrorRatio) {
+        failures.push(`cadence-error-ratio>${thresholds.maxCadenceErrorRatio.toFixed(2)}`);
       }
     }
     return failures;

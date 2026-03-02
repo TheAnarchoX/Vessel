@@ -43,7 +43,8 @@
     const MOVE_TUNING = { accel: 1200, friction: 7.5 };
     const SHOT_INTENT_GRACE_MS = 120;
     const HIT_STOP_MS = 45;
-    const FEEL_TARGETS = { maxP95InputLatencyMs: 130, maxCadenceErrorRatio: 0.2, minSamples: 8 };
+    const FEEL_EVAL_SHOT_INTERVAL = 4;
+    const FEEL_TARGETS = { maxP95InputLatencyMs: 130, maxCadenceErrorRatio: 0.2, expectedCadenceMs: 1000 / 1.5, minSamples: 8 };
 
     const keys = new Set(), pressed = new Set();
     addEventListener("keydown", (e) => {
@@ -106,20 +107,31 @@
       if (!dir) return;
       G.shotIntent = { ...dir, at: nowMs };
     }
+    function currentAimDirection() {
+      if (keys.has("ArrowUp")) return dirForKey("ArrowUp");
+      if (keys.has("ArrowDown")) return dirForKey("ArrowDown");
+      if (keys.has("ArrowLeft")) return dirForKey("ArrowLeft");
+      if (keys.has("ArrowRight")) return dirForKey("ArrowRight");
+      return null;
+    }
     function readHeldAim(nowMs) {
-      let sx=0, sy=0;
-      if (keys.has("ArrowUp")) sy=-1; else if (keys.has("ArrowDown")) sy=1; else if (keys.has("ArrowLeft")) sx=-1; else if (keys.has("ArrowRight")) sx=1;
-      if ((sx || sy) && !G.shotIntent) G.shotIntent = { sx, sy, at: nowMs };
+      const aim = currentAimDirection();
+      if (aim && !G.shotIntent) G.shotIntent = { ...aim, at: nowMs };
+    }
+    function isIntentHeld(intent) {
+      const aim = currentAimDirection();
+      return !!aim && aim.sx === intent.sx && aim.sy === intent.sy;
     }
     function firePlayerShot(intent, nowMs) {
       const p = G.player;
       p.fireCd = 1 / p.tears; sfxFire();
       G.shots.push({x:p.x,y:p.y,vx:intent.sx*p.shotSpeed,vy:intent.sy*p.shotSpeed,life:p.range/p.shotSpeed,damage:p.damage,pierce:p.pierce,slow:p.slow,color:tearColor()});
       VesselGameplay.recordShot(G.feelMetrics, nowMs, intent.at, 1000 / p.tears);
-      const summary = VesselGameplay.summarizeFeel(G.feelMetrics);
-      G.feelFailures = VesselGameplay.evaluateFeel(summary, FEEL_TARGETS);
-      const stillHeld = (intent.sy === -1 && keys.has("ArrowUp")) || (intent.sy === 1 && keys.has("ArrowDown")) || (intent.sx === -1 && keys.has("ArrowLeft")) || (intent.sx === 1 && keys.has("ArrowRight"));
-      G.shotIntent = stillHeld ? { sx: intent.sx, sy: intent.sy, at: nowMs } : null;
+      if ((G.feelMetrics.shotLatenciesMs.length % FEEL_EVAL_SHOT_INTERVAL) === 0) {
+        const summary = VesselGameplay.summarizeFeel(G.feelMetrics);
+        G.feelFailures = VesselGameplay.evaluateFeel(summary, FEEL_TARGETS);
+      }
+      G.shotIntent = isIntentHeld(intent) ? { sx: intent.sx, sy: intent.sy, at: nowMs } : null;
     }
 
     function createDungeon(floor) {
@@ -247,6 +259,7 @@
       const p = G.player;
       if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
       p.inv = Math.max(0,p.inv-dt); p.fireCd -= dt;
+      // Hit-stop deliberately freezes gameplay updates for a short readability pulse.
       if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); return; }
       let mx=(keys.has("KeyD")?1:0)-(keys.has("KeyA")?1:0), my=(keys.has("KeyS")?1:0)-(keys.has("KeyW")?1:0);
       const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml;

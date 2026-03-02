@@ -14,13 +14,20 @@ const fireCd = { value: 0 };
 const shotIntent = { at: null };
 const tears = 1.5;
 const expectedCadenceMs = 1000 / tears;
+const SHOT_TIMING_WINDOW = fixedDt * 1.5;
+const SYNTHETIC_INPUT_DELAY_MS = 8;
 let nowMs = 0;
+
+function isShotTimingWindow(simTime, shotEvery, window) {
+  const mod = simTime % shotEvery;
+  return Math.abs(mod - shotEvery) < window || mod < window;
+}
 
 function step(dt) {
   fireCd.value -= dt;
   const shotEvery = 1 / tears;
-  if (Math.abs((state.simTime % shotEvery) - shotEvery) < fixedDt * 1.5 || state.simTime % shotEvery < fixedDt * 1.5) {
-    shotIntent.at = nowMs - 8;
+  if (isShotTimingWindow(state.simTime, shotEvery, SHOT_TIMING_WINDOW)) {
+    shotIntent.at = nowMs - SYNTHETIC_INPUT_DELAY_MS;
   }
   if (shotIntent.at !== null && fireCd.value <= 0) {
     fireCd.value = 1 / tears;
