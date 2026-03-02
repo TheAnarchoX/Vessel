@@ -47,7 +47,7 @@ Lock down core vision, non-negotiables, and legal/deployment constraints before 
 - Evidence policy for PR validation documented (UI screenshots, benchmark outputs, and non-UI verification artifacts).
 
 ### Agent Prompt (Phase 0)
-"Audit all docs for scope consistency. Enforce open-stack policy (not single-file/vanilla-only) and free-use/free-deploy licensing constraints. Produce a clean dependency policy and acceptance checklist."
+"Act as Planner + Compliance agents and audit `README.md`, `SPEC.md`, `MEMORY.md`, and `AGENTS.md` for scope consistency. Confirm open-stack policy (not single-file/vanilla-only) and free-use/free-deploy licensing constraints, then define phase acceptance gates that later phases can reuse. Use repo search/read tooling (`glob`, `rg`, `view`) to ground findings, and include a dependency-policy checklist that can be validated in PR evidence."
 
 ---
 
@@ -68,7 +68,7 @@ Make minute-1 gameplay feel excellent before broad content expansion.
 - Feel regressions are measurable with baseline metrics.
 
 ### Agent Prompt (Phase 1)
-"Tune movement/shooting responsiveness and impact feedback first. Instrument input latency and cadence consistency; reject changes that feel better subjectively but regress objective frame/input metrics."
+"Act as Gameplay + QA agents and harden minute-1 feel in `index.html` (or future `src/` gameplay modules) with measurable responsiveness targets. Instrument input latency, shot cadence stability, and hit-feedback clarity, and treat objective regressions as blockers even when subjective feel improves. Use deterministic checks/log capture via existing CLI tooling (`bash` runs + PR evidence via `report_progress`) so tuning decisions remain reproducible."
 
 ---
 
@@ -89,7 +89,7 @@ Create high-identity enemies and balanced encounter compositions.
 - Difficulty rises through composition, not randomness alone.
 
 ### Agent Prompt (Phase 2)
-"Implement enemies with explicit telegraph windows and test compositions under stress scenarios. Use AI overlays and logs to verify behavior contracts."
+"Act as Gameplay + QA agents to implement enemy behavior contracts (chase/charge/kite/summon/zone) with explicit telegraph windows and readable damage attribution. Reference current combat logic in `index.html` and migrate contracts into `src/` as architecture evolves. Validate encounter mixes under stress using debug overlays, logs, and targeted simulations; use `rg`/`view` to confirm all attacks include telegraph/read/recover phases."
 
 ---
 
@@ -110,7 +110,7 @@ Deliver memorable bosses with clear escalation and replayable skill tests.
 - Boss outcomes correlate with mastery, not ambiguity.
 
 ### Agent Prompt (Phase 3)
-"Build deterministic boss phase state machines and validate each transition path. Ensure telegraphs, hazard readability, and damage accountability in every phase."
+"Act as Gameplay + Engine agents and model bosses as deterministic phase state machines with explicit transition guards (health, timers, triggers). Keep implementations and documentation synchronized across gameplay code (`index.html`/`src/`) and architecture records in `docs/decisions/` when structure changes. Validate every transition path, telegraph window, and hazard readability with replay-friendly evidence and regression checks."
 
 ---
 
@@ -131,7 +131,7 @@ Enable wide build expression without dead or broken outcomes.
 - Item outcomes are exciting but controllable for balance.
 
 ### Agent Prompt (Phase 4)
-"Implement item taxonomy + synergy matrix with simulation-driven balancing. Detect and prevent no-op rewards and dead synergies before content expansion."
+"Act as Gameplay + QA agents and define a concrete item taxonomy plus pair/triple synergy matrix that can be tested deterministically. Track item interactions and anti-synergy safeguards in source/data definitions (`index.html` now, `src/`/content schemas later) and document balancing assumptions in planning/memory docs when needed. Use simulation outputs and targeted tests to eliminate no-op rewards or dead builds before adding content volume."
 
 ---
 
@@ -152,7 +152,7 @@ Tie systems and story to spiritual erosion, not generic power fantasy.
 - Endings reflect player tradeoffs.
 
 ### Agent Prompt (Phase 5)
-"Connect corruption to gameplay, AV feedback, and narrative branches. Validate that progression and endings feel earned by player decisions."
+"Act as Gameplay + Narrative + Audio/UX collaborators to bind corruption to mechanics, visual/audio treatment, and branching outcomes. Cross-check tone and system intent against `SPEC.md`, `MEMORY.md`, and `README.md` so progression reinforces moral-cost themes instead of generic power gain. Validate trigger logic and ending conditions with deterministic scenario checks and captured evidence."
 
 ---
 
@@ -173,7 +173,7 @@ Make procedural floors reliable, varied, and intentionally paced.
 - Floor pacing naturally alternates pressure and recovery.
 
 ### Agent Prompt (Phase 6)
-"Implement generation constraints and validator passes first, then tune pacing metrics using large seeded batches. Reject seeds that violate reachability/economy constraints."
+"Act as Engine + QA agents and implement dungeon-generation constraints/validators before any pacing polish. Store generator logic and validation utilities in maintainable modules (`src/`, with scripts under `scripts/bench/` when applicable) and enforce reachability/economy guarantees across seeded batches. Reject seeds that violate constraints, and provide reproducible seed-based evidence in PR artifacts."
 
 ---
 
@@ -202,7 +202,7 @@ Migrate from prototype shape to production-ready architecture.
 - Tooling catches structural/content regressions early.
 
 ### Agent Prompt (Phase 7)
-"Refactor into strict module boundaries with deterministic simulation and validation tooling. Prioritize debuggability, replayability, and CI-enforced quality gates over short-term velocity."
+"Act as Engine + Planner agents and refactor from prototype structure into strict module boundaries (core/gameplay/content/rendering/audio/UI) with deterministic simulation contracts. Use `docs/decisions/*.md` ADRs (Mermaid where useful) for architecture choices, and wire validation tooling (lint/type/content/schema/replay checks) into repeatable CI gates. Prioritize debuggability, replayability, and boundary enforcement over short-term feature velocity."
 
 ---
 
@@ -238,7 +238,7 @@ Sustain stable frame pacing while increasing encounter and VFX complexity.
 - Profiling tools explain bottlenecks.
 
 ### Agent Prompt (Phase 8)
-"Profile before optimizing. Eliminate hotspot allocations, stabilize frame pacing, and keep rendering readability-first under heavy combat load."
+"Act as Performance + Engine agents and profile before optimization, using benchmark/stress workflows (including `scripts/bench/`) to identify real hotspots. Target hot-loop allocations, collision/render bottlenecks, and frame pacing spikes while preserving combat readability and horror clarity. Record benchmark commands/output in PR evidence and avoid speculative micro-optimizations without measured wins."
 
 ---
 
@@ -273,7 +273,7 @@ Improve readability, comfort, and emotional impact without diluting horror tone.
 - Accessibility options reduce friction while preserving intent.
 
 ### Agent Prompt (Phase 9)
-"Prioritize HUD readability and accessibility toggles that preserve game tone. Validate audio/visual alert hierarchy under high action density."
+"Act as UX + Accessibility + Audio agents and improve HUD clarity, control comfort, and alert hierarchy without diluting tone. Keep requirements aligned with `SPEC.md` and phase quality pillars, and verify options (rebinds, color/flash/shake/audio intensity controls) under high action density scenarios. Capture before/after UI evidence and confirm critical cues remain readable in stressful encounters."
 
 ---
 
@@ -315,7 +315,7 @@ Make the game robust, tunable, and scalable for content growth.
 - Balance iteration is data-informed.
 
 ### Agent Prompt (Phase 10)
-"Build repeatable QA and balancing loops with deterministic tests + simulation data. Require measurable evidence for balance and stability changes."
+"Act as QA/Balance + Engine agents and operationalize repeatable test/simulation loops for combat math, generation integrity, item stacking, determinism, and save compatibility. Place durable automation in `tests/` and supporting scripts in `scripts/bench/` or equivalent tooling locations as they mature. Require measurable telemetry-backed evidence for any balance or stability change before phase sign-off."
 
 ---
 
@@ -349,7 +349,7 @@ Ship in controlled stages with legal confidence and operational readiness.
 - Deployment can proceed without licensing or quality blockers.
 
 ### Agent Prompt (Phase 11)
-"Prepare staged release candidates with QA evidence, telemetry-backed balance, and full license/compliance verification for free deployment."
+"Act as Planner + Compliance + QA agents and prepare alpha/beta/1.0 release candidates with explicit quality gates, rollback criteria, and evidence bundles. Verify legal/dependency/asset compliance against documented policy in `README.md`, `SPEC.md`, and `MEMORY.md`, and ensure attribution/notice obligations are satisfied. Require QA outputs, telemetry-backed balance validation, and deployment-readiness checks before release approval."
 
 ---
 
