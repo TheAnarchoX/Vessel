@@ -25,7 +25,7 @@ Wire `index.html` to run through the new runtime seam and surface feel regressio
 
 ## Validation / Evidence
 - Commands run:
-  - `node /home/runner/work/Vessel/Vessel/scripts/bench/phase1_feel_check.js`
+  - `node scripts/bench/phase1_feel_check.js`
 - Output summary:
   - Deterministic feel metrics print and regression gate returns PASS.
 

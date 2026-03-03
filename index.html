@@ -258,9 +258,10 @@
     function updatePlaying(dt){
       const p = G.player;
       if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
-      p.inv = Math.max(0,p.inv-dt); p.fireCd -= dt;
       // Hit-stop deliberately freezes gameplay updates for a short readability pulse.
+      // This includes player timers (invulnerability/fire cooldown) for a true micro-freeze.
       if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); return; }
+      p.inv = Math.max(0,p.inv-dt); p.fireCd -= dt;
       let mx=(keys.has("KeyD")?1:0)-(keys.has("KeyA")?1:0), my=(keys.has("KeyS")?1:0)-(keys.has("KeyW")?1:0);
       const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml;
       p.vx += mx * p.accel * dt; p.vy += my * p.accel * dt;

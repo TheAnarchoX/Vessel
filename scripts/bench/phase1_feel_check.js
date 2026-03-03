@@ -16,7 +16,7 @@ const tears = 1.5;
 const expectedCadenceMs = 1000 / tears;
 const SHOT_TIMING_WINDOW = fixedDt * 1.5;
 const SYNTHETIC_INPUT_DELAY_MS = 8;
-let nowMs = 0;
+let simNowMs = 0;
 
 function isShotTimingWindow(simTime, shotEvery, window) {
   const mod = simTime % shotEvery;
@@ -24,14 +24,15 @@ function isShotTimingWindow(simTime, shotEvery, window) {
 }
 
 function step(dt) {
+  simNowMs += dt * 1000;
   fireCd.value -= dt;
   const shotEvery = 1 / tears;
   if (isShotTimingWindow(state.simTime, shotEvery, SHOT_TIMING_WINDOW)) {
-    shotIntent.at = nowMs - SYNTHETIC_INPUT_DELAY_MS;
+    shotIntent.at = simNowMs - SYNTHETIC_INPUT_DELAY_MS;
   }
   if (shotIntent.at !== null && fireCd.value <= 0) {
     fireCd.value = 1 / tears;
-    recordShot(metrics, nowMs, shotIntent.at, expectedCadenceMs);
+    recordShot(metrics, simNowMs, shotIntent.at, expectedCadenceMs);
     shotIntent.at = null;
   }
 }
@@ -39,7 +40,6 @@ function step(dt) {
 for (let i = 0; i < 3600; i++) {
   const jitter = (i % 3) * 0.0015;
   const frameDt = 1 / 60 + jitter;
-  nowMs += frameDt * 1000;
   advanceFixedStep(state, frameDt, step, fixedDt, 8);
 }
 
