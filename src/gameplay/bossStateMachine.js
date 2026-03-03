@@ -110,6 +110,36 @@
     return false;
   }
 
+  function initDelayBuffer(boss, capacity) {
+    var cap = capacity || 20;
+    boss.delay = {
+      capacity: cap,
+      x: new Array(cap),
+      y: new Array(cap),
+      head: 0,
+      length: 0,
+    };
+  }
+
+  function pushDelaySample(boss, x, y) {
+    var q = boss.delay;
+    if (!q || typeof q.capacity !== "number") {
+      initDelayBuffer(boss, 20);
+      q = boss.delay;
+    }
+    var write = (q.head + q.length) % q.capacity;
+    q.x[write] = x;
+    q.y[write] = y;
+    if (q.length < q.capacity) {
+      q.length += 1;
+      return null;
+    }
+    var oldestX = q.x[q.head];
+    var oldestY = q.y[q.head];
+    q.head = (q.head + 1) % q.capacity;
+    return { x: oldestX, y: oldestY };
+  }
+
   /* ================================================================== */
   /*  CORE STATE MACHINE                                                 */
   /* ================================================================== */
@@ -143,7 +173,7 @@
       dead: false,
 
       // Movement state for specific bosses
-      delay: [],
+      delay: null,
       orbitAngle: rng() * 6.283185307,
 
       // Internal
@@ -161,6 +191,8 @@
       hp: definition.health,
       split: false,
     };
+
+    initDelayBuffer(boss, 20);
 
     // Initialize attack states for all phases
     var phases = definition.phases;
@@ -360,6 +392,7 @@
   /* ---------- SHEPHERD ---------- */
   var SHEPHERD_DEF = {
     id: "shepherd",
+    pathAffinity: "ascetic",
     health: 36,
     speed: 64,
     damage: 1,
@@ -438,6 +471,7 @@
   /* ---------- PIT ---------- */
   var PIT_DEF = {
     id: "pit",
+    pathAffinity: "demonic",
     health: 58,
     speed: 88,
     damage: 1.5,
@@ -449,11 +483,10 @@
     phases: [
       {
         id: "pit_p1",
-        movement: function (boss, ctx, dtMs) {
+        movement: function (boss, ctx, _dtMs) {
           var target = ctx.target;
-          boss.delay.push({ x: target.x, y: target.y });
-          if (boss.delay.length > 20) {
-            var m = boss.delay.shift();
+          var m = pushDelaySample(boss, target.x, target.y);
+          if (m) {
             boss.x += (m.x - boss.x) * 0.08;
             boss.y += (m.y - boss.y) * 0.08;
           }
@@ -482,11 +515,10 @@
       },
       {
         id: "pit_p2",
-        movement: function (boss, ctx, dtMs) {
+        movement: function (boss, ctx, _dtMs) {
           var target = ctx.target;
-          boss.delay.push({ x: target.x, y: target.y });
-          if (boss.delay.length > 20) {
-            var m = boss.delay.shift();
+          var m = pushDelaySample(boss, target.x, target.y);
+          if (m) {
             boss.x += (m.x - boss.x) * 0.08;
             boss.y += (m.y - boss.y) * 0.08;
           }
@@ -532,11 +564,10 @@
             }
           }
         },
-        movement: function (boss, ctx, dtMs) {
+        movement: function (boss, ctx, _dtMs) {
           var target = ctx.target;
-          boss.delay.push({ x: target.x, y: target.y });
-          if (boss.delay.length > 20) {
-            var m = boss.delay.shift();
+          var m = pushDelaySample(boss, target.x, target.y);
+          if (m) {
             boss.x += (m.x - boss.x) * 0.08;
             boss.y += (m.y - boss.y) * 0.08;
           }
@@ -567,6 +598,7 @@
   /* ---------- CHOIR ---------- */
   var CHOIR_DEF = {
     id: "choir",
+    pathAffinity: "unaligned",
     health: 48,
     speed: 75,
     damage: 1,

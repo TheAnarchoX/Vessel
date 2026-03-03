@@ -29,6 +29,8 @@
   <body>
   <canvas id="game" width="960" height="540"></canvas>
   <script src="src/core/fixedStep.js"></script>
+  <script src="src/core/inputBindings.js"></script>
+  <script src="src/core/playerOptions.js"></script>
   <script src="src/gameplay/feelMetrics.js"></script>
   <script src="src/gameplay/enemyContracts.js"></script>
   <script src="src/gameplay/bossHazards.js"></script>
@@ -39,7 +41,9 @@
   <script src="src/content/schemas.js"></script>
   <script src="src/rendering/entityVisuals.js"></script>
   <script src="src/ui/corruptionHud.js"></script>
+  <script src="src/ui/alertHud.js"></script>
   <script src="src/audio/corruptionAudio.js"></script>
+  <script src="src/audio/audioBus.js"></script>
   <script src="src/presentation/entityVisuals.js"></script>
   <script src="src/presentation/corruptionEffects.js"></script>
   <script src="src/engine/runtime.js"></script>
@@ -65,33 +69,92 @@
     const FEEL_TARGETS = { maxP95InputLatencyMs: 130, maxCadenceErrorRatio: 0.2, expectedCadenceMs: 1000 / 1.5, minSamples: 8 };
     const ITEM_TOOLTIP_RANGE = 110;
     const ITEM_PICKUP_RANGE = 38;
+    const UI_TEXT_BASE = 13;
+    const STORAGE_KEY_OPTIONS = "vessel_phase9_options";
+    const STORAGE_KEY_BINDINGS = "vessel_phase9_bindings";
+
+    const inputProfile = VesselCore.createInputBindings(loadBindingSnapshot());
+    const playerOptions = VesselCore.createPlayerOptions(loadOptionsSnapshot());
+    let pendingRebindAction = null;
 
     const keys = new Set(), pressed = new Set();
     addEventListener("keydown", (e) => {
+      if (pendingRebindAction) {
+        const rebound = inputProfile.rebind(pendingRebindAction, e.code);
+        if (rebound) {
+          pendingRebindAction = null;
+          persistSettings();
+          enqueueAlert("Binding updated", "info", 1.1);
+        }
+        e.preventDefault();
+        return;
+      }
       if (!keys.has(e.code)) pressed.add(e.code);
       keys.add(e.code);
       queueShotIntent(e.code, performance.now());
-      if (["Tab","F2","F3","F4","F5","F6","F7","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE","KeyR"].includes(e.code)) e.preventDefault();
+      if (shouldPreventDefault(e.code)) e.preventDefault();
       initAudio();
     });
     addEventListener("keyup", (e) => keys.delete(e.code));
 
     let audioCtx = null;
-    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-    function blip(f = 440, d = 0.08, type = "sine", g = 0.08) {
-      if (!audioCtx) return;
-      const o = audioCtx.createOscillator(), gain = audioCtx.createGain(), t = audioCtx.currentTime;
-      o.type = type; o.frequency.value = f; gain.gain.value = g;
-      o.connect(gain).connect(audioCtx.destination);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      o.start(t); o.stop(t + d);
+    let audioBus = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioBus = VesselAudio.createAudioBus(audioCtx);
+      }
+      applyAudioProfile();
     }
-    function sfxFire(){ blip(900,0.05); }
-    function sfxHit(){ blip(250,0.05,"triangle",0.05); }
-    function sfxDamage(){ blip(95,0.12,"sawtooth",0.1); }
-    function sfxUnlock(){ blip(120,0.2,"triangle",0.07); }
-    function sfxPickup(){ [220,262,330].forEach((f,i)=>setTimeout(()=>blip(f,0.11,"triangle",0.06), i*75)); }
-    function sfxBoss(){ blip(70,0.8,"sawtooth",0.08); }
+    function blip(f = 440, d = 0.08, type = "sine", g = 0.08, bus = "sfx", critical = false) {
+      if (!audioBus) return;
+      audioBus.playTone({ freq: f, durationSec: d, wave: type, gain: g, bus, critical });
+    }
+    function sfxFire(){ blip(900,0.05,"triangle",0.06,"sfx"); }
+    function sfxHit(){ blip(250,0.05,"triangle",0.05,"sfx"); }
+    function sfxDamage(){ blip(95,0.12,"sawtooth",0.1,"sfx", true); }
+    function sfxUnlock(){ blip(120,0.2,"triangle",0.07,"ui"); }
+    function sfxPickup(){ [220,262,330].forEach((f,i)=>setTimeout(()=>blip(f,0.11,"triangle",0.06,"ui"), i*75)); }
+    function sfxBoss(){ blip(70,0.8,"sawtooth",0.08,"voice", true); }
+
+    function loadOptionsSnapshot() {
+      const storage = globalThis.localStorage;
+      if (!storage) return null;
+      try {
+        return JSON.parse(storage.getItem(STORAGE_KEY_OPTIONS) || "null") || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function loadBindingSnapshot() {
+      const storage = globalThis.localStorage;
+      if (!storage) return null;
+      try {
+        return JSON.parse(storage.getItem(STORAGE_KEY_BINDINGS) || "null") || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function persistSettings() {
+      const storage = globalThis.localStorage;
+      if (!storage) return;
+      storage.setItem(STORAGE_KEY_OPTIONS, JSON.stringify(playerOptions.get()));
+      storage.setItem(STORAGE_KEY_BINDINGS, JSON.stringify(inputProfile.getBindings()));
+    }
+
+    function applyAudioProfile() {
+      if (!audioBus) return;
+      audioBus.setProfile(playerOptions.get().audioIntensity);
+    }
+
+    function shouldPreventDefault(code) {
+      if (code === "Tab") return true;
+      const bindings = inputProfile.getBindings();
+      for (const actionId in bindings) if (bindings[actionId] === code) return true;
+      return ["Escape", "F2", "F3", "F4", "F5", "F6", "F7", "BracketLeft", "BracketRight"].includes(code);
+    }
 
     // Item pool now driven by VesselGameplay.ITEM_DEFINITIONS (src/gameplay/itemSystem.js)
     // Deterministic RNG for item offerings per dungeon
@@ -122,8 +185,44 @@
       msg: "", msgT: 0, mapOpen: false, flash: 0, shake: 0, endingTitle: "", endingLine: "",
       hitStop: 0, shotIntent: null, feelMetrics: VesselGameplay.createFeelMetrics(), feelFailures: [],
       phase2Preview: null, phase25Visuals: { enabled: true, checklist: false, observed: createObservedStateTracker() },
-      activeBoss: null, bossPhaseFlash: 0, bossReplaySession: null, bossInputLocked: false, bossDebugOverlay: false, itemDebugOverlay: false, showDebugHUD: true,
-      nearbyItem: null, descentPortal: null, bossDropPending: false
+      activeBoss: null, bossPhaseFlash: 0, bossReplaySession: null, bossInputLocked: false, bossDebugOverlay: false, itemDebugOverlay: false, showDebugHUD: false,
+      nearbyItem: null, descentPortal: null, bossDropPending: false,
+      alerts: VesselUI.createAlertState(),
+      pauseMenuOpen: false,
+      pauseCursor: 0,
+      optionsMenuOpen: false,
+      optionsCursor: 0,
+      controlCursor: 0,
+      cueFlags: { lowSoul: false, highCorruption: false, denseCombat: false }
+    };
+
+    const PAUSE_ROWS = ["Settings", "Restart", "Exit"];
+
+    const MENU_ROWS = [
+      "flashIntensity",
+      "shakeIntensity",
+      "textScale",
+      "corruptionColorblindMode",
+      "minimapMode",
+      "audioIntensity",
+      "subtitles",
+      "tutorialHints",
+      "controls",
+    ];
+
+    const CONTROL_ROWS = VesselCore.REBINDABLE_ACTIONS.slice();
+    const ACTION_LABELS = {
+      move_up: "Move Up",
+      move_down: "Move Down",
+      move_left: "Move Left",
+      move_right: "Move Right",
+      shoot_up: "Shoot Up",
+      shoot_down: "Shoot Down",
+      shoot_left: "Shoot Left",
+      shoot_right: "Shoot Right",
+      interact: "Interact",
+      toggle_map: "Map Overlay",
+      restart: "Restart Run",
     };
 
     function behaviorColor(behavior) {
@@ -170,10 +269,10 @@
     }
 
     function dirForKey(code) {
-      if (code === "ArrowUp") return { sx: 0, sy: -1 };
-      if (code === "ArrowDown") return { sx: 0, sy: 1 };
-      if (code === "ArrowLeft") return { sx: -1, sy: 0 };
-      if (code === "ArrowRight") return { sx: 1, sy: 0 };
+      if (code === inputProfile.getBinding("shoot_up")) return { sx: 0, sy: -1 };
+      if (code === inputProfile.getBinding("shoot_down")) return { sx: 0, sy: 1 };
+      if (code === inputProfile.getBinding("shoot_left")) return { sx: -1, sy: 0 };
+      if (code === inputProfile.getBinding("shoot_right")) return { sx: 1, sy: 0 };
       return null;
     }
     function queueShotIntent(code, nowMs) {
@@ -182,11 +281,19 @@
       G.shotIntent = { ...dir, at: nowMs };
     }
     function currentAimDirection() {
-      if (keys.has("ArrowUp")) return dirForKey("ArrowUp");
-      if (keys.has("ArrowDown")) return dirForKey("ArrowDown");
-      if (keys.has("ArrowLeft")) return dirForKey("ArrowLeft");
-      if (keys.has("ArrowRight")) return dirForKey("ArrowRight");
+      const up = inputProfile.getBinding("shoot_up");
+      const down = inputProfile.getBinding("shoot_down");
+      const left = inputProfile.getBinding("shoot_left");
+      const right = inputProfile.getBinding("shoot_right");
+      if (up && keys.has(up)) return dirForKey(up);
+      if (down && keys.has(down)) return dirForKey(down);
+      if (left && keys.has(left)) return dirForKey(left);
+      if (right && keys.has(right)) return dirForKey(right);
       return null;
+    }
+
+    function enqueueAlert(text, severity, durationSec) {
+      VesselUI.pushAlert(G.alerts, text, severity || "info", durationSec || 1.6);
     }
     function readHeldAim(nowMs) {
       const aim = currentAimDirection();
@@ -243,6 +350,7 @@
 
     function enterRoom() {
       G.room.visited = true; G.shots = []; G.enemyShots = [];
+      if (G.room.type !== "boss") { G.activeBoss = null; G.bossInputLocked = false; G.bossReplaySession = null; G.bossPhaseFlash = 0; }
       if (!G.room.spawned) {
         G.room.spawned = true;
         if (G.room.type==="combat") for (let i=0;i<2+G.floor;i++) G.room.enemies.push(spawnEnemy(enemyTypeForFloor(), ROOM_X+130+Math.random()*(ROOM_PX_W-260), ROOM_Y+120+Math.random()*(ROOM_PX_H-240)));
@@ -283,7 +391,104 @@
       }
     }
     function roomLocked(){ return !G.room.cleared && (G.room.type==="combat"||G.room.type==="boss"); }
-    function setMsg(text, t=2){ G.msg = text; G.msgT = t; }
+    function setMsg(text, t = 2, severity = "info") {
+      G.msg = text;
+      G.msgT = t;
+      enqueueAlert(text, severity, t);
+    }
+
+    function mutateOption(rowId, dir) {
+      const opt = playerOptions.get();
+      if (rowId === "flashIntensity") playerOptions.patch({ flashIntensity: Math.max(0, Math.min(1, opt.flashIntensity + dir * 0.1)) });
+      if (rowId === "shakeIntensity") playerOptions.patch({ shakeIntensity: Math.max(0, Math.min(1, opt.shakeIntensity + dir * 0.1)) });
+      if (rowId === "textScale") playerOptions.patch({ textScale: Math.max(0.85, Math.min(1.55, opt.textScale + dir * 0.05)) });
+      if (rowId === "corruptionColorblindMode" && dir !== 0) playerOptions.patch({ corruptionColorblindMode: !opt.corruptionColorblindMode });
+      if (rowId === "tutorialHints" && dir !== 0) playerOptions.patch({ tutorialHints: !opt.tutorialHints });
+      if (rowId === "minimapMode") playerOptions.cycleMinimap(dir >= 0 ? 1 : -1);
+      if (rowId === "audioIntensity") playerOptions.cycleAudioIntensity(dir >= 0 ? 1 : -1);
+      if (rowId === "subtitles") playerOptions.cycleSubtitles(dir >= 0 ? 1 : -1);
+      applyAudioProfile();
+      persistSettings();
+    }
+
+    function updateOptionsMenu() {
+      if (pendingRebindAction) return;
+
+      if (pressed.has("ArrowUp") || pressed.has("KeyW")) G.optionsCursor = (G.optionsCursor - 1 + MENU_ROWS.length) % MENU_ROWS.length;
+      if (pressed.has("ArrowDown") || pressed.has("KeyS")) G.optionsCursor = (G.optionsCursor + 1) % MENU_ROWS.length;
+
+      const selectedRow = MENU_ROWS[G.optionsCursor];
+      if (selectedRow === "controls") {
+        if (pressed.has("ArrowLeft") || pressed.has("KeyA")) G.controlCursor = (G.controlCursor - 1 + CONTROL_ROWS.length) % CONTROL_ROWS.length;
+        if (pressed.has("ArrowRight") || pressed.has("KeyD")) G.controlCursor = (G.controlCursor + 1) % CONTROL_ROWS.length;
+        if (pressed.has("Enter")) {
+          pendingRebindAction = CONTROL_ROWS[G.controlCursor];
+          enqueueAlert("Press any key for " + ACTION_LABELS[pendingRebindAction], "warning", 1.6);
+        }
+        if (pressed.has("Backspace") || pressed.has("Delete")) {
+          inputProfile.restoreDefaults();
+          persistSettings();
+          enqueueAlert("Bindings restored", "info", 1.2);
+        }
+      } else {
+        if (pressed.has("ArrowLeft") || pressed.has("KeyA")) mutateOption(selectedRow, -1);
+        if (pressed.has("ArrowRight") || pressed.has("KeyD")) mutateOption(selectedRow, 1);
+        if (pressed.has("Enter") || pressed.has("Space")) mutateOption(selectedRow, 1);
+      }
+    }
+
+    function closePauseOverlays() {
+      G.pauseMenuOpen = false;
+      G.optionsMenuOpen = false;
+      pendingRebindAction = null;
+    }
+
+    function activatePauseAction() {
+      const action = PAUSE_ROWS[G.pauseCursor];
+      if (action === "Settings") {
+        G.optionsMenuOpen = true;
+        enqueueAlert("Settings", "info", 0.8);
+      }
+      if (action === "Restart") {
+        closePauseOverlays();
+        startRun();
+      }
+      if (action === "Exit") {
+        closePauseOverlays();
+        G.mapOpen = false;
+        G.state = "title";
+      }
+    }
+
+    function updatePauseMenu() {
+      if (pressed.has("ArrowUp") || pressed.has("KeyW")) G.pauseCursor = (G.pauseCursor - 1 + PAUSE_ROWS.length) % PAUSE_ROWS.length;
+      if (pressed.has("ArrowDown") || pressed.has("KeyS")) G.pauseCursor = (G.pauseCursor + 1) % PAUSE_ROWS.length;
+      if (pressed.has("Enter") || pressed.has("Space")) activatePauseAction();
+    }
+
+    function evaluateCriticalCues() {
+      const p = G.player;
+      if (!p) return;
+
+      const lowSoulNow = p.soul <= 2;
+      const highCorruptionNow = p.corruption >= 75;
+      const denseCombatNow = (G.room?.enemies?.filter((e) => e.hp > 0).length || 0) + G.enemyShots.length >= 11;
+
+      if (lowSoulNow && !G.cueFlags.lowSoul) {
+        enqueueAlert("CRITICAL: Soul near collapse", "critical", 1.8);
+        blip(130, 0.18, "sawtooth", 0.08, "voice", true);
+      }
+      if (highCorruptionNow && !G.cueFlags.highCorruption) {
+        enqueueAlert("WARNING: Corruption threshold crossed", "warning", 1.8);
+      }
+      if (denseCombatNow && !G.cueFlags.denseCombat) {
+        enqueueAlert("High density contact: prioritize escape", "critical", 1.4);
+      }
+
+      G.cueFlags.lowSoul = lowSoulNow;
+      G.cueFlags.highCorruption = highCorruptionNow;
+      G.cueFlags.denseCombat = denseCombatNow;
+    }
     function applyItemById(itemId) {
       const def = VesselGameplay.getItemDef(itemId);
       if (!def) return;
@@ -336,13 +541,17 @@
     }
     function startRun() {
       G.floor = 0; G.player = makePlayer();
+      closePauseOverlays();
       G.descentPortal = null; G.bossDropPending = false; G.nearbyItem = null;
+      G.activeBoss = null; G.bossInputLocked = false; G.bossReplaySession = null; G.bossPhaseFlash = 0;
+      G.cueFlags = { lowSoul: false, highCorruption: false, denseCombat: false };
       const runSeed = (Date.now() & 0x7FFFFFFF) || 1;
       G.runSeed = runSeed;
       resetItemRng(runSeed);
       VesselGameplay.startRunTracking(_runHistory, runSeed);
       G.phase25Visuals.observed = createObservedStateTracker();
       ensurePhase2Preview();
+      applyAudioProfile();
       loadFloor(true);
       setMsg("DESCEND INTO THE NAVE", 2.5);
       G.state = "playing";
@@ -387,13 +596,43 @@
 
     function updatePlaying(dt){
       const p = G.player;
-      if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
+      if (pressed.has("Escape")) {
+        if (pendingRebindAction) {
+          pendingRebindAction = null;
+          enqueueAlert("Cancelled rebind", "info", 0.8);
+        } else if (G.optionsMenuOpen) {
+          G.optionsMenuOpen = false;
+          enqueueAlert("Back to pause", "info", 0.8);
+        } else {
+          G.pauseMenuOpen = !G.pauseMenuOpen;
+          if (G.pauseMenuOpen) {
+            G.mapOpen = false;
+            enqueueAlert("Paused", "warning", 0.9);
+          }
+        }
+      }
+      if (inputProfile.wasActionPressed(pressed, "toggle_map")) G.mapOpen = !G.mapOpen;
       if (pressed.has("F2")) G.showDebugHUD = !G.showDebugHUD;
       if (pressed.has("F3")) { ensurePhase2Preview(); if (G.phase2Preview) G.phase2Preview.enabled = !G.phase2Preview.enabled; }
       if (pressed.has("F4")) G.phase25Visuals.enabled = !G.phase25Visuals.enabled;
       if (pressed.has("F5")) G.phase25Visuals.checklist = !G.phase25Visuals.checklist;
       if (pressed.has("F6")) G.bossDebugOverlay = !G.bossDebugOverlay;
       if (pressed.has("F7")) G.itemDebugOverlay = !G.itemDebugOverlay;
+      if (pressed.has(inputProfile.getBinding("prev_minimap_mode")) || pressed.has("BracketLeft")) {
+        const mode = playerOptions.cycleMinimap(-1);
+        setMsg("MINIMAP: " + mode.toUpperCase(), 1.2);
+        persistSettings();
+      }
+      if (pressed.has(inputProfile.getBinding("next_minimap_mode")) || pressed.has("BracketRight")) {
+        const mode = playerOptions.cycleMinimap(1);
+        setMsg("MINIMAP: " + mode.toUpperCase(), 1.2);
+        persistSettings();
+      }
+      if (G.pauseMenuOpen) {
+        if (G.optionsMenuOpen) updateOptionsMenu();
+        else updatePauseMenu();
+        return;
+      }
       G._hitStopThisFrame = 0;
       // Hit-stop deliberately freezes gameplay updates for a short readability pulse.
       // This includes player timers (invulnerability/fire cooldown) for a true micro-freeze.
@@ -413,7 +652,7 @@
         return;
       }
       p.inv = Math.max(0,p.inv-dt); p.fireCd -= dt;
-      let mx=(keys.has("KeyD")?1:0)-(keys.has("KeyA")?1:0), my=(keys.has("KeyS")?1:0)-(keys.has("KeyW")?1:0);
+      let mx=(inputProfile.isActionDown(keys, "move_right")?1:0)-(inputProfile.isActionDown(keys, "move_left")?1:0), my=(inputProfile.isActionDown(keys, "move_down")?1:0)-(inputProfile.isActionDown(keys, "move_up")?1:0);
       const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml;
       p.vx += mx * p.accel * dt; p.vy += my * p.accel * dt;
       const drag = Math.max(0, 1 - p.friction * dt);
@@ -616,7 +855,7 @@
           G.floor++; loadFloor();
         }
       }
-      if (pressed.has("KeyE")) {
+      if (inputProfile.wasActionPressed(pressed, "interact")) {
         if (G.room.type==="confession" && !G.room.choiceDone) {
           if (p.x < W/2) { p.damage += 1; p.soul = Math.max(1,p.soul-1); }
           else { p.maxSoul += 2; p.soul += 2; p.corruption = Math.min(100,p.corruption+15); }
@@ -630,14 +869,20 @@
         G.endingLine = "There was no player. There was only ever the vessel.";
         VesselGameplay.endRunTracking(_runHistory, G.player, "consumed");
       }
+      evaluateCriticalCues();
       updatePhase2Preview(dt);
     }
 
     function update(dt){
       if (G.state==="title") { if (pressed.has("Enter")) startRun(); }
-      else if (G.state==="playing") { if (pressed.has("KeyR")) startRun(); else updatePlaying(dt); }
-      else if (G.state==="dead"||G.state==="ending") { if (pressed.has("Enter")) G.state="title"; else if (pressed.has("KeyR")) startRun(); }
-      G.msgT = Math.max(0, G.msgT-dt); G.flash = Math.max(0,G.flash-dt*2.5); G.shake = Math.max(0,G.shake-dt*8); pressed.clear();
+      else if (G.state==="playing") { if (inputProfile.wasActionPressed(pressed, "restart")) startRun(); else updatePlaying(dt); }
+      else if (G.state==="dead"||G.state==="ending") { if (pressed.has("Enter")) G.state="title"; else if (inputProfile.wasActionPressed(pressed, "restart")) startRun(); }
+      G.msgT = Math.max(0, G.msgT-dt);
+      const opt = playerOptions.get();
+      G.flash = Math.max(0,G.flash-dt*2.5*opt.flashIntensity);
+      G.shake = Math.max(0,G.shake-dt*8*Math.max(0.25,opt.shakeIntensity));
+      VesselUI.tickAlerts(G.alerts, dt);
+      pressed.clear();
     }
 
     function drawRoom() {
@@ -660,16 +905,17 @@
       if (G.room.doors.d) d(W/2-56,ROOM_Y+ROOM_PX_H-TILE,112,TILE);
       if (G.room.doors.l) d(ROOM_X,H/2-56,TILE,112);
       if (G.room.doors.r) d(ROOM_X+ROOM_PX_W-TILE,H/2-56,TILE,112);
-      // Door room-type indicators (show what's on the other side)
+      // Door room-type indicators (show what's on the other side — always visible for path choice)
       if (!roomLocked()) {
-        const doorTypeColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", combat:"#5a3a48", start:"#5a3a48" };
-        const doorTypeLabels = { boss:"BOSS", altar:"ALTAR", confession:"???", reliquary:"RELIQUARY" };
+        const doorTypeColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", rest:"#5a8a5a", combat:"#5a3a48", start:"#5a3a48" };
+        const doorTypeLabels = { boss:"BOSS", altar:"ALTAR", confession:"???", reliquary:"RELIQUARY", rest:"REST", combat:"COMBAT" };
         const drawDoorLabel = (x, y, type, visited) => {
-          if (!visited && !G.player.mapReveal) return;
           const lbl = doorTypeLabels[type];
           if (!lbl) return;
+          ctx.globalAlpha = visited ? 1.0 : 0.7;
           ctx.fillStyle = doorTypeColors[type] || "#5a3a48"; ctx.font = "9px monospace";
           ctx.fillText(lbl, x - ctx.measureText(lbl).width / 2, y);
+          ctx.globalAlpha = 1.0;
         };
         if (G.room.doors.u) { const nr = G.dungeon.grid[G.room.y-1]?.[G.room.x]; if (nr) drawDoorLabel(W/2, ROOM_Y + TILE - 4, nr.type, nr.visited); }
         if (G.room.doors.d) { const nr = G.dungeon.grid[G.room.y+1]?.[G.room.x]; if (nr) drawDoorLabel(W/2, ROOM_Y + ROOM_PX_H - 6, nr.type, nr.visited); }
@@ -679,10 +925,13 @@
     }
     function drawHUD() {
       const p = G.player;
+      const opt = playerOptions.get();
+      const textScale = opt.textScale;
+      const hudLabelSize = Math.round(UI_TEXT_BASE * textScale);
       ctx.fillStyle="#12000f"; ctx.fillRect(0,0,W,ROOM_Y); ctx.fillRect(0,ROOM_Y+ROOM_PX_H,W,H-ROOM_Y-ROOM_PX_H);
       ctx.fillRect(0,0,ROOM_X,H); ctx.fillRect(ROOM_X+ROOM_PX_W,0,W-ROOM_X-ROOM_PX_W,H);
       // --- SOUL meter (top-left, row 1) ---
-      ctx.fillStyle="#e6d8cc"; ctx.font="13px monospace";
+      ctx.fillStyle="#e6d8cc"; ctx.font = hudLabelSize + "px monospace";
       ctx.fillText("SOUL:",16,20);
       const pulse = 1 + Math.sin(performance.now()*0.008)*0.08;
       for (let i=0;i<Math.ceil(p.maxSoul);i++) {
@@ -693,14 +942,18 @@
         else if (half) { ctx.fillStyle="#d54a58"; ctx.fillRect(66+i*13,12,z/2,z); }
       }
       // --- CORRUPTION meter (top-left, row 2, below SOUL) ---
-      ctx.fillStyle="#e6d8cc"; ctx.font="13px monospace";
+      const corruptionHud = VesselCore.getCorruptionHudColors(p.corruption, opt.corruptionColorblindMode);
+      ctx.fillStyle="#e6d8cc"; ctx.font = hudLabelSize + "px monospace";
       ctx.fillText(`CORRUPTION: ${Math.round(p.corruption)}%`,16,36);
       ctx.fillStyle="#281118"; ctx.fillRect(16,40,180,6);
-      ctx.fillStyle=p.corruption<50?"#b5a54a":p.corruption<75?"#9f3535":"#290b18"; ctx.fillRect(16,40,180*Math.min(1,p.corruption/100),6);
+      ctx.fillStyle = corruptionHud.fill; ctx.fillRect(16,40,180*Math.min(1,p.corruption/100),6);
+      ctx.fillStyle = corruptionHud.text;
+      ctx.font = Math.round(10 * textScale) + "px monospace";
+      ctx.fillText(corruptionHud.label, 204, 46);
       // --- Title (center) ---
-      ctx.fillStyle="#c9b65d"; ctx.font="16px monospace"; ctx.fillText("VESSEL",W/2-30,18);
+      ctx.fillStyle="#c9b65d"; ctx.font = Math.round(16 * textScale) + "px monospace"; ctx.fillText("VESSEL",W/2-30,18);
       // --- Bottom bar ---
-      ctx.fillStyle="#d8d0c2"; ctx.font="16px monospace";
+      ctx.fillStyle="#d8d0c2"; ctx.font = Math.round(16 * textScale) + "px monospace";
       ctx.fillText(`FLOOR: ${FLOOR_NAMES[G.floor]}`,W-225,H-28);
       if (G.showDebugHUD) {
         ctx.font="11px monospace";
@@ -718,18 +971,26 @@
         ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
       }
       // --- Minimap (top-right with semi-transparent background) ---
-      const miniRoomColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", start:"#6d4a58" };
-      const miniRoomLabels = { boss:"B", altar:"A", confession:"?", reliquary:"R", start:"S" };
+      const miniRoomColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", start:"#6d4a58", combat:"#8b6d7c", rest:"#5a8a5a" };
+      const miniRoomLabels = { boss:"B", altar:"A", confession:"?", reliquary:"R", start:"S", rest:"H" };
+      const mapMode = opt.minimapMode;
+      const mapScale = mapMode === "tactical_plus" ? 1.55 : 1;
+      const miniTileAlpha = mapMode === "tactical_plus" ? 0.62 : 1;
       // Build fog-of-war: only show rooms that are visited or adjacent to a visited room via doors
       const knownRooms = new Set();
-      for (const r of G.dungeon.rooms) {
-        if (r.visited || p.mapReveal) {
-          knownRooms.add(r);
-          // Reveal adjacent rooms through doors (discovered but not visited)
-          if (r.doors.u) { const nr = G.dungeon.grid[r.y-1]?.[r.x]; if (nr) knownRooms.add(nr); }
-          if (r.doors.d) { const nr = G.dungeon.grid[r.y+1]?.[r.x]; if (nr) knownRooms.add(nr); }
-          if (r.doors.l) { const nr = G.dungeon.grid[r.y]?.[r.x-1]; if (nr) knownRooms.add(nr); }
-          if (r.doors.r) { const nr = G.dungeon.grid[r.y]?.[r.x+1]; if (nr) knownRooms.add(nr); }
+      if (mapMode === "minimal") {
+        knownRooms.add(G.room);
+      } else {
+        for (const r of G.dungeon.rooms) {
+          const isKnown = r.visited || p.mapReveal;
+          if (isKnown) {
+            knownRooms.add(r);
+            // Reveal adjacent rooms through doors (discovered but not visited)
+            if (r.doors.u) { const nr = G.dungeon.grid[r.y-1]?.[r.x]; if (nr) knownRooms.add(nr); }
+            if (r.doors.d) { const nr = G.dungeon.grid[r.y+1]?.[r.x]; if (nr) knownRooms.add(nr); }
+            if (r.doors.l) { const nr = G.dungeon.grid[r.y]?.[r.x-1]; if (nr) knownRooms.add(nr); }
+            if (r.doors.r) { const nr = G.dungeon.grid[r.y]?.[r.x+1]; if (nr) knownRooms.add(nr); }
+          }
         }
       }
       // Compute minimap bounds from known rooms only
@@ -738,14 +999,15 @@
         if (r.x < minRX) minRX = r.x; if (r.y < minRY) minRY = r.y;
         if (r.x > maxRX) maxRX = r.x; if (r.y > maxRY) maxRY = r.y;
       }
-      const miniTile = 12, miniGap = 2, miniPad = 8;
+      if (!Number.isFinite(minRX)) return;
+      const miniTile = Math.round(12 * mapScale), miniGap = Math.round(2 * mapScale), miniPad = Math.round(8 * mapScale);
       const miniStep = miniTile + miniGap;
       const miniW = (maxRX - minRX + 1) * miniStep - miniGap + miniPad * 2;
       const miniH = (maxRY - minRY + 1) * miniStep - miniGap + miniPad * 2;
       const miniOriginX = W - miniW - 10;
       const miniOriginY = 8;
       // Semi-transparent background
-      ctx.fillStyle = "rgba(8,2,12,0.55)";
+      ctx.fillStyle = mapMode === "tactical_plus" ? "rgba(8,2,12,0.34)" : "rgba(8,2,12,0.55)";
       ctx.fillRect(miniOriginX, miniOriginY, miniW, miniH);
       ctx.strokeStyle = "rgba(60,30,50,0.5)";
       ctx.strokeRect(miniOriginX, miniOriginY, miniW, miniH);
@@ -759,28 +1021,44 @@
         const cleared = needsClear ? r.cleared : visited;
         if (isCurrent) {
           // Current room: bright highlight
+          ctx.globalAlpha = mapMode === "tactical_plus" ? 0.9 : 1;
           ctx.fillStyle = "#f0d477";
         } else if (cleared) {
           // Completed: full brightness color
+          ctx.globalAlpha = miniTileAlpha;
           ctx.fillStyle = miniRoomColors[r.type] || "#8b6d7c";
         } else if (visited) {
           // Explored but not cleared: dim version
           const baseColor = miniRoomColors[r.type];
           if (baseColor) {
-            ctx.globalAlpha = 0.45;
+            ctx.globalAlpha = 0.45 * miniTileAlpha;
             ctx.fillStyle = baseColor;
           } else {
+            ctx.globalAlpha = miniTileAlpha;
             ctx.fillStyle = "#3d2a35";
           }
         } else {
-          // Discovered (adjacent) but not visited: dark
-          ctx.fillStyle = "#1a0e15";
+          // Discovered (adjacent) but not visited: show type color dimmed
+          const discColor = miniRoomColors[r.type];
+          if (discColor) {
+            ctx.globalAlpha = 0.3 * miniTileAlpha;
+            ctx.fillStyle = discColor;
+          } else {
+            ctx.globalAlpha = miniTileAlpha;
+            ctx.fillStyle = "#1a0e15";
+          }
         }
         ctx.fillRect(x, y, miniTile, miniTile);
         ctx.globalAlpha = 1.0;
-        // Labels for visited rooms
-        if ((visited || isCurrent) && miniRoomLabels[r.type]) {
-          ctx.fillStyle = isCurrent ? "#1a0a08" : (cleared ? "#d8d0c2" : "#8a7a82");
+        // Labels for visited AND discovered rooms
+        if (miniRoomLabels[r.type]) {
+          if (isCurrent) {
+            ctx.fillStyle = "#1a0a08";
+          } else if (visited) {
+            ctx.fillStyle = cleared ? "#d8d0c2" : "#8a7a82";
+          } else {
+            ctx.fillStyle = "#5a4a52";
+          }
           ctx.font = "7px monospace";
           ctx.fillText(miniRoomLabels[r.type], x + 2, y + 9);
         }
@@ -791,8 +1069,109 @@
           if (r.doors.d && G.dungeon.grid[r.y+1]?.[r.x] && knownRooms.has(G.dungeon.grid[r.y+1][r.x])) { ctx.beginPath(); ctx.moveTo(x+miniTile/2,y+miniTile); ctx.lineTo(x+miniTile/2,y+miniStep); ctx.stroke(); }
         }
       }
+      VesselUI.renderAlert(ctx, G.alerts, ROOM_X + 20, ROOM_Y - Math.round(34 * textScale), 390, textScale);
+      if (opt.tutorialHints) {
+        const hint = "Esc Pause | [ ] Minimap Mode | Tab Map";
+        ctx.fillStyle = "#7f6a78";
+        ctx.font = Math.round(10 * textScale) + "px monospace";
+        ctx.fillText(hint, ROOM_X + 10, H - 8);
+      }
       if (G.msgT>0) { ctx.save(); ctx.globalAlpha=Math.min(1,G.msgT); ctx.font="bold 22px monospace"; ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,ROOM_Y+TILE+46); ctx.restore(); }
     }
+
+    function formatOptionValue(optionId, opt) {
+      if (optionId === "flashIntensity") return Math.round(opt.flashIntensity * 100) + "%";
+      if (optionId === "shakeIntensity") return Math.round(opt.shakeIntensity * 100) + "%";
+      if (optionId === "textScale") return Math.round(opt.textScale * 100) + "%";
+      if (optionId === "corruptionColorblindMode") return opt.corruptionColorblindMode ? "ON" : "OFF";
+      if (optionId === "minimapMode") return opt.minimapMode.toUpperCase();
+      if (optionId === "audioIntensity") return opt.audioIntensity.toUpperCase();
+      if (optionId === "subtitles") return opt.subtitles.toUpperCase();
+      if (optionId === "tutorialHints") return opt.tutorialHints ? "ON" : "OFF";
+      if (optionId === "controls") {
+        const action = CONTROL_ROWS[G.controlCursor];
+        return ACTION_LABELS[action] + " = " + inputProfile.getBinding(action);
+      }
+      return "";
+    }
+
+    function drawOptionsMenu() {
+      if (!G.optionsMenuOpen) return;
+      const opt = playerOptions.get();
+      const width = 600;
+      const height = 340;
+      const x = W / 2 - width / 2;
+      const y = H / 2 - height / 2;
+      ctx.fillStyle = "rgba(4,1,7,0.92)";
+      ctx.fillRect(x, y, width, height);
+      ctx.strokeStyle = "#604050";
+      ctx.strokeRect(x, y, width, height);
+
+      ctx.fillStyle = "#d8c4ad";
+      ctx.font = "15px monospace";
+      ctx.fillText("PHASE 9 OPTIONS", x + 18, y + 24);
+      ctx.fillStyle = "#8d7a86";
+      ctx.font = "11px monospace";
+      ctx.fillText("Arrow keys adjust | Enter apply | Backspace reset bindings | Esc back", x + 18, y + 42);
+
+      for (let i = 0; i < MENU_ROWS.length; i++) {
+        const row = MENU_ROWS[i];
+        const rowY = y + 68 + i * 26;
+        const selected = i === G.optionsCursor;
+        if (selected) {
+          ctx.fillStyle = "rgba(96,64,80,0.5)";
+          ctx.fillRect(x + 14, rowY - 14, width - 28, 20);
+        }
+        ctx.fillStyle = selected ? "#f0d9c0" : "#b6a8a0";
+        ctx.font = "12px monospace";
+        ctx.fillText(row.toUpperCase(), x + 26, rowY);
+        ctx.fillStyle = selected ? "#e5bc7c" : "#908086";
+        ctx.fillText(formatOptionValue(row, opt), x + 250, rowY);
+      }
+
+      if (pendingRebindAction) {
+        ctx.fillStyle = "rgba(14,8,6,0.92)";
+        ctx.fillRect(x + 120, y + height - 72, width - 240, 44);
+        ctx.strokeStyle = "#8a5a2a";
+        ctx.strokeRect(x + 120, y + height - 72, width - 240, 44);
+        ctx.fillStyle = "#ffd68c";
+        ctx.fillText("Press a key for " + ACTION_LABELS[pendingRebindAction], x + 138, y + height - 44);
+      }
+    }
+
+    function drawPauseMenu() {
+      if (!G.pauseMenuOpen) return;
+      const width = 300;
+      const height = 220;
+      const x = W / 2 - width / 2;
+      const y = H / 2 - height / 2;
+
+      ctx.fillStyle = "rgba(6,2,8,0.9)";
+      ctx.fillRect(x, y, width, height);
+      ctx.strokeStyle = "#6a3f4f";
+      ctx.strokeRect(x, y, width, height);
+
+      ctx.fillStyle = "#dbc7ac";
+      ctx.font = "bold 20px monospace";
+      ctx.fillText("PAUSED", x + 98, y + 38);
+
+      for (let i = 0; i < PAUSE_ROWS.length; i++) {
+        const rowY = y + 82 + i * 42;
+        const selected = i === G.pauseCursor && !G.optionsMenuOpen;
+        if (selected) {
+          ctx.fillStyle = "rgba(102,64,80,0.6)";
+          ctx.fillRect(x + 26, rowY - 20, width - 52, 28);
+        }
+        ctx.fillStyle = selected ? "#f0d9c0" : "#bca99b";
+        ctx.font = "16px monospace";
+        ctx.fillText(PAUSE_ROWS[i], x + 110, rowY);
+      }
+
+      ctx.fillStyle = "#8e7c87";
+      ctx.font = "11px monospace";
+      ctx.fillText("Esc resume/back", x + 22, y + height - 18);
+    }
+
     function drawPlaying() {
       const presentation = globalThis.VesselPresentation;
       const usePresentation = G.phase25Visuals.enabled && presentation;
@@ -990,12 +1369,13 @@
       if (G.nearbyItem && !G.nearbyItem.taken && !G.nearbyItem.hidden) {
         const tip = VesselGameplay.formatItemTooltip(G.nearbyItem.itemId);
         if (tip) {
-          const tx = 16, ty = ROOM_Y + 6;
+          const panelW = 300;
+          const tx = 16;
+          const ty = ROOM_Y + 62;
           const lineH = 15;
           const catLabels = { offense: "OFFENSE", defense: "DEFENSE", utility: "UTILITY", economy: "ECONOMY", corruption_tech: "CORRUPTION" };
           const catColors = { offense: "#bf4b54", defense: "#5a9a5f", utility: "#5a7abf", economy: "#c9a030", corruption_tech: "#8b4abf" };
           // Word-wrap description into lines
-          const panelW = 300;
           const maxChars = Math.floor((panelW - 20) / 7.2);
           const descLines = [];
           if (tip.desc) {
@@ -1034,8 +1414,8 @@
         ctx.strokeStyle="#5c2742"; ctx.strokeRect(ox,oy,ow,oh);
         ctx.fillStyle="#d8c4ad"; ctx.font="14px monospace"; ctx.fillText("MAP",ox+20,oy+22);
         // Enhanced minimap with room-type colors and labels
-        const roomTypeColors = { start:"#6d4a58", boss:"#9f3040", combat:"#6d4a58", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050" };
-        const roomTypeLabels = { start:"S", boss:"B", combat:"", altar:"A", confession:"?", reliquary:"R" };
+        const roomTypeColors = { start:"#6d4a58", boss:"#9f3040", combat:"#6d4a58", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", rest:"#5a8a5a" };
+        const roomTypeLabels = { start:"S", boss:"B", combat:"", altar:"A", confession:"?", reliquary:"R", rest:"H" };
         // Fog-of-war: only show known rooms
         const mapKnown = new Set();
         for (const r of G.dungeon.rooms) {
@@ -1051,11 +1431,25 @@
         for (const r of mapKnown) {
           const rx = mapCx + (r.x-2)*38, ry = mapCy + (r.y-2)*38;
           const vis = r.visited || G.player.mapReveal;
-          ctx.fillStyle = r===G.room ? "#d8b85f" : vis ? (roomTypeColors[r.type] || "#6d4a58") : "#1f131b";
+          if (r===G.room) {
+            ctx.fillStyle = "#d8b85f";
+          } else if (vis) {
+            ctx.fillStyle = roomTypeColors[r.type] || "#6d4a58";
+          } else {
+            // Discovered but unvisited: show type color dimmed
+            ctx.globalAlpha = 0.35;
+            ctx.fillStyle = roomTypeColors[r.type] || "#3a2a32";
+          }
           ctx.fillRect(rx, ry, 28, 28);
-          if (vis || r === G.room) {
+          ctx.globalAlpha = 1.0;
+          // Show labels for all known rooms (visited + discovered)
+          {
             const lbl = roomTypeLabels[r.type] || "";
-            if (lbl) { ctx.fillStyle = r===G.room ? "#1a0a08" : "#d8d0c2"; ctx.font = "10px monospace"; ctx.fillText(lbl, rx + 10, ry + 18); }
+            if (lbl) {
+              ctx.fillStyle = r===G.room ? "#1a0a08" : vis ? "#d8d0c2" : "#6a5a62";
+              ctx.font = "10px monospace";
+              ctx.fillText(lbl, rx + 10, ry + 18);
+            }
           }
           // Draw connections
           if (vis || r === G.room) {
@@ -1097,12 +1491,19 @@
           }
         }
       }
-      if (G.flash>0) { ctx.fillStyle=`rgba(180,20,20,${Math.min(0.45,G.flash*0.45)})`; ctx.fillRect(0,0,W,H); }
+      const optIntensity = playerOptions.get();
+      if (G.flash>0 && optIntensity.flashIntensity > 0) {
+        ctx.fillStyle = `rgba(180,20,20,${Math.min(0.45, G.flash * 0.45 * optIntensity.flashIntensity)})`;
+        ctx.fillRect(0,0,W,H);
+      }
       const v = ctx.createRadialGradient(W/2,H/2,140,W/2,H/2,470); v.addColorStop(0,"rgba(0,0,0,0)"); v.addColorStop(1,"rgba(20,0,10,0.45)");
       ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
+      drawPauseMenu();
+      drawOptionsMenu();
     }
     function render() {
-      const sx = (Math.random()*2-1)*G.shake*6, sy = (Math.random()*2-1)*G.shake*6;
+      const shakeScale = playerOptions.get().shakeIntensity;
+      const sx = (Math.random()*2-1)*G.shake*6*shakeScale, sy = (Math.random()*2-1)*G.shake*6*shakeScale;
       ctx.setTransform(1,0,0,1,sx,sy); ctx.clearRect(-20,-20,W+40,H+40); ctx.imageSmoothingEnabled = false;
       if (G.state==="title") {
         ctx.fillStyle="#0a0008"; ctx.fillRect(0,0,W,H);

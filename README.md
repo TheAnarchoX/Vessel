@@ -18,7 +18,7 @@ This game is hosted on GitHub Pages at [https://theanarchox.github.io/Vessel/](h
 
 ## Current State
 
-Implemented and validated to Phase 6 scope:
+Implemented and validated through core content/system phases, with additional planning artifacts:
 
 - Phase 1: feel/runtime seam and fixed-step structure.
 - Phase 2: enemy behavior contracts and telegraph windows.
@@ -27,8 +27,12 @@ Implemented and validated to Phase 6 scope:
 - Phase 4: data-driven item taxonomy, synergy matrix, balance floors.
 - Phase 5: corruption tiers, whispers, narratives, relics, endings, meta unlocks.
 - Phase 6: deterministic dungeon generation with pacing/entropy/economy guarantees.
+- Phase 7: architecture/toolchain maturity (boundary checks, schema validation, replay/license gates).
+- Phase 10: QA/balance telemetry gates and deterministic loop checks.
+- Pre-Phase 11: ideation distillation completed in `PLAN.md` + `BACKLOG.md`.
 
-Planned future work continues in `PLAN.md` (Phases 7-11).
+Phase 11 execution now focuses on route-distinct expansion (demonic vs ascetic),
+new content packs, direction shifts, polish targets, and staged release candidates.
 
 ## Run The Prototype
 
@@ -51,6 +55,8 @@ The integration shell loads runtime and systems from:
 - `Arrow keys`: shooting direction
 - `E`: interaction (doors/items/room interactions)
 - `Tab`: minimap/inventory overlay
+- `Esc`: pause menu (`Settings`, `Restart`, `Exit`)
+- `[` / `]`: cycle minimap mode (minimal/tactical/tactical_plus)
 - `F2`-`F7`: debug overlays/toggles used by implemented phase tooling
 
 ## Game Structure
@@ -182,6 +188,8 @@ node scripts/bench/phase3_boss_replay_check.js
 node scripts/bench/phase4_item_synergy_check.js
 node scripts/bench/phase5_corruption_check.js
 node scripts/bench/phase6_dungeon_gen_check.js
+node scripts/bench/phase10_qa_balance_check.js
+node --test tests/phase10/qa_balance_loops.test.js
 ```
 
 ## Toolchain Validation (Phase 7)

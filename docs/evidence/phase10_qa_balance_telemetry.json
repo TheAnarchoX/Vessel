@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-03-03T18:11:04.786Z",
+  "anchors": {
+    "combatPhilosophy": "SPEC.md: Combat Philosophy",
+    "dungeonGenerationPhilosophy": "SPEC.md: Dungeon Generation Philosophy",
+    "engineeringPhilosophy": "SPEC.md: Engineering Philosophy"
+  },
+  "combat": {
+    "baselinePlayer": {
+      "soul": 6,
+      "damage": 1,
+      "tears": 1.5
+    },
+    "averageIncomingDps": 0.8043,
+    "survivabilitySec": 7.4595,
+    "incomingDpsByBehavior": {
+      "chase": 1.1765,
+      "charge": 1.25,
+      "kite": 0.8333,
+      "summon": 0,
+      "zone": 0.7619
+    },
+    "ttkSecByBehavior": {
+      "chase": 2,
+      "charge": 2,
+      "kite": 2,
+      "summon": 2,
+      "zone": 2
+    },
+    "encounterComposition": {
+      "total": 5,
+      "behaviors": {
+        "chase": 2,
+        "kite": 1,
+        "zone": 1,
+        "charge": 1
+      },
+      "roles": {
+        "melee": 3,
+        "ranged": 1,
+        "area": 1
+      },
+      "validPressureMix": true
+    }
+  },
+  "generation": {
+    "sweepSeedsPerFloor": 250,
+    "maxAttempts": 25,
+    "totalFailures": 0,
+    "floorMetrics": [
+      {
+        "floor": 0,
+        "seeds": 250,
+        "avgAttempts": 1.656,
+        "avgEntropy": 0.2805,
+        "invalidCount": 0
+      },
+      {
+        "floor": 1,
+        "seeds": 250,
+        "avgAttempts": 1.92,
+        "avgEntropy": 0.3827,
+        "invalidCount": 0
+      },
+      {
+        "floor": 2,
+        "seeds": 250,
+        "avgAttempts": 1.912,
+        "avgEntropy": 0.4688,
+        "invalidCount": 0
+      },
+      {
+        "floor": 3,
+        "seeds": 250,
+        "avgAttempts": 6.644,
+        "avgEntropy": 0.208,
+        "invalidCount": 0
+      }
+    ]
+  },
+  "items": {
+    "sampleBuilds": 400,
+    "deadBuildRate": 0.0075,
+    "deadBuilds": 3,
+    "capViolations": 0,
+    "corruptionBoundsViolations": 0
+  },
+  "determinism": {
+    "layoutMismatches": 0,
+    "signatureSamples": [
+      {
+        "floor": 0,
+        "seed": 71,
+        "hashLength": 84,
+        "equal": true
+      },
+      {
+        "floor": 1,
+        "seed": 84,
+        "hashLength": 102,
+        "equal": true
+      },
+      {
+        "floor": 2,
+        "seed": 97,
+        "hashLength": 91,
+        "equal": true
+      },
+      {
+        "floor": 3,
+        "seed": 110,
+        "hashLength": 82,
+        "equal": true
+      }
+    ],
+    "replayDeterministic": true,
+    "replayEventCount": 8,
+    "saveVersion": 1,
+    "saveMigratedVersion": 1,
+    "saveIdempotentVersion": 1,
+    "discoveredEndingsPreserved": true
+  }
+}

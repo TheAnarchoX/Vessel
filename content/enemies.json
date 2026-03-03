@@ -1,7 +1,7 @@
 [
-  {"id":"penitent","behavior":"chase","role":"melee","baseHealth":2,"baseSpeed":60,"telegraphMs":220,"readMs":280,"recoverMs":320},
-  {"id":"hollowed","behavior":"charge","role":"melee","baseHealth":3,"baseSpeed":75,"telegraphMs":360,"readMs":220,"recoverMs":420},
-  {"id":"wisp","behavior":"kite","role":"ranged","baseHealth":2,"baseSpeed":55,"telegraphMs":180,"readMs":320,"recoverMs":260},
-  {"id":"acolyte","behavior":"summon","role":"ranged","baseHealth":4,"baseSpeed":48,"telegraphMs":420,"readMs":260,"recoverMs":380},
-  {"id":"sigilist","behavior":"zone","role":"area","baseHealth":4,"baseSpeed":52,"telegraphMs":300,"readMs":460,"recoverMs":340}
+  {"id":"penitent","behavior":"chase","role":"melee","baseHealth":2,"baseSpeed":60,"pathAffinity":"ascetic","telegraphMs":220,"readMs":280,"recoverMs":320},
+  {"id":"hollowed","behavior":"charge","role":"melee","baseHealth":3,"baseSpeed":75,"pathAffinity":"demonic","telegraphMs":360,"readMs":220,"recoverMs":420},
+  {"id":"wisp","behavior":"kite","role":"ranged","baseHealth":2,"baseSpeed":55,"pathAffinity":"unaligned","telegraphMs":180,"readMs":320,"recoverMs":260},
+  {"id":"acolyte","behavior":"summon","role":"ranged","baseHealth":4,"baseSpeed":48,"pathAffinity":"demonic","telegraphMs":420,"readMs":260,"recoverMs":380},
+  {"id":"sigilist","behavior":"zone","role":"area","baseHealth":4,"baseSpeed":52,"pathAffinity":"unaligned","telegraphMs":300,"readMs":460,"recoverMs":340}
 ]

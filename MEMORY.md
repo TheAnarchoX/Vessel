@@ -154,3 +154,49 @@
 
 - Validator rejects invalid seeds; generator increments seed and retries (max 100 attempts).
 - In 4000-seed sweep (1000 seeds × 4 floors), max attempts observed: 60, typical: 1–3.
+
+## Phase 10 QA/Balancing Readiness Assumptions
+
+### Operationalized Telemetry Gates
+
+- Phase 10 readiness is enforced by `node scripts/bench/phase10_qa_balance_check.js` plus `node --test tests/phase10/qa_balance_loops.test.js`.
+- Bench run writes evidence artifacts at `docs/evidence/phase10_qa_balance_telemetry.json` and `docs/evidence/phase10_qa_balance_telemetry.md`.
+- Telemetry is anchored to `SPEC.md` sections `Combat Philosophy`, `Dungeon Generation Philosophy`, and `Engineering Philosophy`.
+
+### Gate Thresholds
+
+- Combat baseline survivability floor: >= 2.8s for baseline player assumptions.
+- Encounter pressure mix contract must remain valid (melee + ranged + area).
+- Generation sweep must have 0 unwinnable seeds and remain within `MAX_REROLL_ATTEMPTS`.
+- Item stacking must preserve DR cap (<= 0.75), corruption bounds [0,100], and dead-build rate <= 8% in duplicate-stacking stress builds.
+- Determinism requires zero dungeon signature mismatches and deterministic boss replay sequence for identical input logs.
+- Save compatibility requires migration to `SAVE_VERSION`, idempotent re-migration, and preservation of discovered endings.
+
+### Sign-off Policy
+
+- Balance/stability changes require updated Phase 10 telemetry artifacts in PR evidence before approval.
+
+## Pre-Phase 11 Planning Assumptions
+
+### Route Identity Direction
+
+- Phase 11 expansion is planned around two explicit corruption routes:
+  - Demonic path: high-corruption, high-volatility power spikes, aggressive horror AV treatment.
+  - Ascetic path: low-corruption, disciplined survivability/control, restrained ritual AV treatment.
+- Route commitment is intended to be replayability-positive and ending-impactful, not cosmetic.
+
+### Ideation Output Counts
+
+- Planning targets captured in `PLAN.md` and `BACKLOG.md`:
+  - 10 bosses
+  - 20 enemy types
+  - 50 items
+  - 5 mechanics/systems
+  - 10 polish targets
+  - 5 major direction shifts
+
+### Evidence and Acceptance Expectations
+
+- Every Phase 11 scope item should include explicit acceptance gates (design contract, implementation target, tests/sims, balance/readability verification).
+- PR evidence should include deterministic test output and telemetry deltas for systems/content changes, plus visual/audio before/after captures for direction-shift and polish work.
+- Architecture-impacting direction shifts require ADR updates in `docs/decisions/`.

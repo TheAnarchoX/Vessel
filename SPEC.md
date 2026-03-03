@@ -122,6 +122,13 @@ Use this checklist for any dependency/tooling introduction or update:
 - Constant visibility for Soul, Corruption, floor identity, passive inventory, and minimap.
 - High-contrast readability under dark palette.
 
+### Phase 9 HUD Clarity Contracts
+
+- HUD adds priority-based alert banner (`info`/`warning`/`critical`) so low-soul, high-corruption, and dense-combat cues preempt non-critical notices.
+- Minimap supports `minimal`, `tactical`, and `tactical_plus` modes to balance readability and cognitive load during pressure.
+- Player-facing options include text scale, flash intensity, shake intensity, corruption colorblind mode, subtitles mode, and optional tutorial hints.
+- Controls are rebindable in-game through the `Esc` pause menu settings panel, with defaults restorable without leaving gameplay.
+
 ### Corruption HUD Integration (Phase 5)
 
 - Corruption meter rendered with gothic border, fill color shifts per tier (bone → yellow → red → purple).
@@ -137,6 +144,12 @@ Use this checklist for any dependency/tooling introduction or update:
 
 - Procedural Web Audio cues for fire, hit, damage, unlock, pickup, boss entry, and death.
 - Horror-driven tonal choices: low drones, distorted lows, tense blips.
+
+### Phase 9 Audio Comfort Contracts
+
+- Audio bus architecture exposes `master`, `music`, `sfx`, `ui`, and `voice` gains.
+- Intensity profiles (`full`, `reduced`, `silent`) provide comfort scaling without muting critical danger cues.
+- Critical cue playback can temporarily duck background bus levels to preserve warning readability under high action density.
 
 ### Corruption Audio Treatment (Phase 5)
 
@@ -165,3 +178,25 @@ Use this checklist for any dependency/tooling introduction or update:
 - Floor narrative beats change text by tier to reinforce erosion framing.
 - Whisper system provides context-aware horror text (boss proximity, low soul, high corruption, tier transitions).
 - Meta-progression unlocks are tied to ending discovery, rewarding breadth of moral exploration.
+
+## Phase 11 Planning Alignment (Pre-Implementation)
+
+### Route Identity Expansion
+
+- Future content should support two explicit corruption-route identities:
+   - Demonic Path (high corruption): stronger immediate output, harsher stability and readability pressures, heavier body-horror AV treatment.
+   - Ascetic Path (low corruption): cleaner control/survivability tools, lower volatility, restrained but severe ritual AV treatment.
+- Both routes must remain inside horror framing and spiritual-cost narrative constraints.
+- Route mechanics must integrate with existing confession/relic/ending systems rather than replacing them.
+
+### Direction Shift Guardrails
+
+- Major visual/UI/audio shifts are allowed when they measurably improve readability, emotional cohesion, or long-session comfort.
+- Refactors for direction shifts must preserve deterministic simulation contracts and pass existing validation gates.
+- Any architecture-impacting direction shift requires an ADR entry in `docs/decisions/`.
+
+### Content Expansion Policy
+
+- New bosses, enemies, and items should be data-contract first where possible (schema + deterministic checks before tuning passes).
+- Every concrete content addition requires explicit gameplay-impact intent (what pressure, decision, or readability problem it solves).
+- Balance outcomes should be justified with telemetry/simulation evidence, not only subjective feel.

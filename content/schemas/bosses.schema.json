@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VESSEL Boss Contract",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "name", "pathAffinity", "phaseCount", "hazardProfile"],
+    "properties": {
+      "id": { "type": "string", "minLength": 1 },
+      "name": { "type": "string", "minLength": 1 },
+      "pathAffinity": { "type": "string", "enum": ["demonic", "ascetic", "unaligned"] },
+      "phaseCount": { "type": "number", "minimum": 1, "maximum": 12 },
+      "hazardProfile": { "type": "string", "minLength": 1 },
+      "notes": { "type": "string" }
+    }
+  }
+}

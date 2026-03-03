@@ -68,6 +68,190 @@
   };
 
   /* ================================================================== */
+  /*  ROUTE FOUNDATION (PHASE 11A)                                      */
+  /*  Deterministic route state machine driven by confession, relic,     */
+  /*  and corruption triggers. Route can switch only before lock-in.     */
+  /* ================================================================== */
+  var ROUTE_RULES = {
+    demonic: {
+      entryMinCorruption: 55,
+      entryYields: 2,
+      entryDarkRelics: 2,
+      lockMinCorruption: 75,
+      lockYields: 3,
+      lockDarkRelics: 3,
+    },
+    ascetic: {
+      entryMaxCorruption: 35,
+      entryResists: 2,
+      entryHolyRelics: 2,
+      lockMaxCorruption: 20,
+      lockResists: 3,
+      lockHolyRelics: 3,
+    },
+  };
+
+  var ROUTE_EFFECTS = {
+    demonic: {
+      damageScale: 1.15,
+      soulDecayScale: 1.3,
+      endingBias: "consumed",
+    },
+    ascetic: {
+      damageScale: 0.95,
+      soulDecayScale: 0.7,
+      endingBias: "liberation",
+    },
+    unbound: {
+      damageScale: 1,
+      soulDecayScale: 1,
+      endingBias: null,
+    },
+  };
+
+  function countConfessionChoices(state) {
+    var resists = 0;
+    var yields = 0;
+    for (var i = 0; i < state.confessionChoices.length; i++) {
+      if (state.confessionChoices[i].choice === "resist") resists++;
+      if (state.confessionChoices[i].choice === "yield") yields++;
+    }
+    return { resists: resists, yields: yields };
+  }
+
+  function countRelicTypes(state) {
+    var holy = 0;
+    var dark = 0;
+    for (var i = 0; i < state.relicsFound.length; i++) {
+      if (state.relicsFound[i].type === "holy") holy++;
+      if (state.relicsFound[i].type === "dark") dark++;
+    }
+    return { holy: holy, dark: dark };
+  }
+
+  function calculateRouteSignals(state) {
+    var conf = countConfessionChoices(state);
+    var relics = countRelicTypes(state);
+    return {
+      corruption: state.level,
+      resists: conf.resists,
+      yields: conf.yields,
+      holyRelics: relics.holy,
+      darkRelics: relics.dark,
+    };
+  }
+
+  function candidateStrength(routeId, signals) {
+    if (routeId === "demonic") {
+      return (signals.corruption >= ROUTE_RULES.demonic.entryMinCorruption ? 1 : 0) +
+        (signals.yields >= ROUTE_RULES.demonic.entryYields ? 1 : 0) +
+        (signals.darkRelics >= ROUTE_RULES.demonic.entryDarkRelics ? 1 : 0);
+    }
+    if (routeId === "ascetic") {
+      return (signals.corruption <= ROUTE_RULES.ascetic.entryMaxCorruption ? 1 : 0) +
+        (signals.resists >= ROUTE_RULES.ascetic.entryResists ? 1 : 0) +
+        (signals.holyRelics >= ROUTE_RULES.ascetic.entryHolyRelics ? 1 : 0);
+    }
+    return 0;
+  }
+
+  function determineRouteCandidate(state) {
+    var signals = calculateRouteSignals(state);
+    var demonicStrength = candidateStrength("demonic", signals);
+    var asceticStrength = candidateStrength("ascetic", signals);
+
+    if (demonicStrength === 0 && asceticStrength === 0) return "unbound";
+    if (demonicStrength > asceticStrength) return "demonic";
+    if (asceticStrength > demonicStrength) return "ascetic";
+
+    if (state.route && state.route.current !== "unbound") {
+      return state.route.current;
+    }
+    return signals.corruption >= 50 ? "demonic" : "ascetic";
+  }
+
+  function shouldLockRoute(routeId, signals) {
+    if (routeId === "demonic") {
+      var demonicCommitted = signals.yields >= 1 || signals.darkRelics >= 1;
+      return (signals.corruption >= ROUTE_RULES.demonic.lockMinCorruption && demonicCommitted) ||
+        signals.yields >= ROUTE_RULES.demonic.lockYields ||
+        signals.darkRelics >= ROUTE_RULES.demonic.lockDarkRelics;
+    }
+    if (routeId === "ascetic") {
+      var asceticCommitted = signals.resists >= 1 || signals.holyRelics >= 1;
+      return (signals.corruption <= ROUTE_RULES.ascetic.lockMaxCorruption && asceticCommitted) ||
+        signals.resists >= ROUTE_RULES.ascetic.lockResists ||
+        signals.holyRelics >= ROUTE_RULES.ascetic.lockHolyRelics;
+    }
+    return false;
+  }
+
+  function evaluateRouteTransition(state, trigger, tick) {
+    var route = state.route;
+    var candidate = determineRouteCandidate(state);
+    var signals = calculateRouteSignals(state);
+
+    if (candidate === "unbound") return;
+
+    if (route.locked && route.current !== candidate) {
+      route.preventedSwitches += 1;
+      route.history.push({
+        type: "blocked_switch",
+        from: route.current,
+        to: candidate,
+        trigger: trigger,
+        tick: tick,
+      });
+      return;
+    }
+
+    if (route.current === "unbound") {
+      route.current = candidate;
+      route.entryTick = tick;
+      route.entryTrigger = trigger;
+      route.history.push({ type: "entry", to: candidate, trigger: trigger, tick: tick });
+    } else if (route.current !== candidate && !route.locked) {
+      route.history.push({ type: "switch", from: route.current, to: candidate, trigger: trigger, tick: tick });
+      route.current = candidate;
+      route.entryTick = tick;
+      route.entryTrigger = trigger;
+    }
+
+    if (!route.locked && shouldLockRoute(route.current, signals)) {
+      route.locked = true;
+      route.lockTick = tick;
+      route.lockTrigger = trigger;
+      route.history.push({ type: "lock", route: route.current, trigger: trigger, tick: tick });
+    }
+  }
+
+  function getRouteEffects(corruptionState) {
+    if (!corruptionState || !corruptionState.route) return ROUTE_EFFECTS.unbound;
+    return ROUTE_EFFECTS[corruptionState.route.current] || ROUTE_EFFECTS.unbound;
+  }
+
+  function getRouteSnapshot(corruptionState) {
+    if (!corruptionState || !corruptionState.route) {
+      return {
+        current: "unbound",
+        locked: false,
+        preventedSwitches: 0,
+      };
+    }
+
+    return {
+      current: corruptionState.route.current,
+      locked: corruptionState.route.locked,
+      entryTrigger: corruptionState.route.entryTrigger,
+      entryTick: corruptionState.route.entryTick,
+      lockTrigger: corruptionState.route.lockTrigger,
+      lockTick: corruptionState.route.lockTick,
+      preventedSwitches: corruptionState.route.preventedSwitches,
+      historyLength: corruptionState.route.history.length,
+    };
+  }
+
+  /* ================================================================== */
   /*  CORRUPTION STATE                                                   */
   /*  Tracks corruption level + history for narrative/ending logic.      */
   /* ================================================================== */
@@ -82,6 +266,16 @@
       relicsFound: [],
       currentTier: "pure",
       soulDecayAccum: 0,
+      route: {
+        current: "unbound",
+        locked: false,
+        entryTick: null,
+        entryTrigger: null,
+        lockTick: null,
+        lockTrigger: null,
+        preventedSwitches: 0,
+        history: [],
+      },
     };
   }
 
@@ -104,6 +298,19 @@
     if (newTier.id !== prevTier) {
       state.tierTransitions.push({ from: prevTier, to: newTier.id, tick: tick });
       state.currentTier = newTier.id;
+    }
+
+    if (
+      source === "confession_resist" ||
+      source === "confession_yield" ||
+      source === "holy_relic" ||
+      source === "dark_relic" ||
+      source === "item_pickup" ||
+      source === "altar_sacrifice" ||
+      source === "boss_kill" ||
+      source === "floor_descent"
+    ) {
+      evaluateRouteTransition(state, source, tick);
     }
 
     return {
@@ -283,20 +490,16 @@
       if (cond.minBossKills != null && corruptionState.bossesKilled.length < cond.minBossKills) met = false;
 
       // Count confession choices
-      var resists = 0, yields = 0;
-      for (var c = 0; c < corruptionState.confessionChoices.length; c++) {
-        if (corruptionState.confessionChoices[c].choice === "resist") resists++;
-        if (corruptionState.confessionChoices[c].choice === "yield") yields++;
-      }
+      var confessions = countConfessionChoices(corruptionState);
+      var resists = confessions.resists;
+      var yields = confessions.yields;
       if (cond.confessionResists != null && resists < cond.confessionResists) met = false;
       if (cond.confessionYields != null && yields < cond.confessionYields) met = false;
       if (cond.confessionMixed && !(resists >= 1 && yields >= 1)) met = false;
 
       // Dark relics
-      var darkRelics = 0;
-      for (var r = 0; r < corruptionState.relicsFound.length; r++) {
-        if (corruptionState.relicsFound[r].type === "dark") darkRelics++;
-      }
+      var relicCounts = countRelicTypes(corruptionState);
+      var darkRelics = relicCounts.dark;
       if (cond.minDarkRelics != null && darkRelics < cond.minDarkRelics) met = false;
 
       if (met) candidates.push(ending);
@@ -403,6 +606,9 @@
     var narrativesFired = 0;
     var soulDecayTriggered = 0;
     var allScenarios = [];
+    var routeCounts = { unbound: 0, demonic: 0, ascetic: 0 };
+    var routeLocks = { demonic: 0, ascetic: 0 };
+    var blockedSwitches = 0;
 
     for (var r = 0; r < runCount; r++) {
       var state = createCorruptionState();
@@ -475,6 +681,13 @@
       var ending = evaluateEnding(state);
       endingCounts[ending.id] = (endingCounts[ending.id] || 0) + 1;
 
+      if (routeCounts[state.route.current] == null) routeCounts[state.route.current] = 0;
+      routeCounts[state.route.current]++;
+      if (state.route.locked && state.route.current !== "unbound") {
+        routeLocks[state.route.current] = (routeLocks[state.route.current] || 0) + 1;
+      }
+      blockedSwitches += state.route.preventedSwitches;
+
       // Track tier transitions
       for (var tt = 0; tt < state.tierTransitions.length; tt++) {
         var to = state.tierTransitions[tt].to;
@@ -485,6 +698,8 @@
         finalCorruption: state.level,
         peakCorruption: state.peakLevel,
         ending: ending.id,
+        route: state.route.current,
+        routeLocked: state.route.locked,
         confessions: state.confessionChoices.length,
         relics: state.relicsFound.length,
         tierTransitions: state.tierTransitions.length,
@@ -500,6 +715,9 @@
       whispersFired: whispersFired,
       narrativesFired: narrativesFired,
       soulDecayTriggered: soulDecayTriggered,
+      routeCounts: routeCounts,
+      routeLocks: routeLocks,
+      blockedSwitches: blockedSwitches,
       sampleScenarios: allScenarios.slice(0, 5),
     };
   }
@@ -516,6 +734,8 @@
     ENDINGS: ENDINGS,
     META_UNLOCKS: META_UNLOCKS,
     RELICS: RELICS,
+    ROUTE_RULES: ROUTE_RULES,
+    ROUTE_EFFECTS: ROUTE_EFFECTS,
 
     getCorruptionTier: getCorruptionTier,
     getTierMechanics: getTierMechanics,
@@ -531,6 +751,10 @@
     getTotalEndingCount: getTotalEndingCount,
     processConfession: processConfession,
     pickUpRelic: pickUpRelic,
+    getRouteEffects: getRouteEffects,
+    getRouteSnapshot: getRouteSnapshot,
+    evaluateRouteTransition: evaluateRouteTransition,
+    determineRouteCandidate: determineRouteCandidate,
     simulateCorruptionScenarios: simulateCorruptionScenarios,
   };
 });

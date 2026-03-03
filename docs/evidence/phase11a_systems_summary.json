@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-03-03T18:56:30.414Z",
+  "systems": {
+    "roomAfflictionLayer": {
+      "deterministicPlan": true,
+      "demonicAfflictions": [
+        "bleeding_altar",
+        "vow_silence"
+      ],
+      "asceticAfflictions": [
+        "penitent_bloom",
+        "vow_silence"
+      ],
+      "roomAssignments": 6
+    },
+    "narrativeEchoLedger": {
+      "dominantRoute": "demonic",
+      "intensity": 0.125,
+      "deterministicEchoLine": "Mercy decays before impact.",
+      "endingDeltaRoute": "demonic"
+    }
+  }
+}

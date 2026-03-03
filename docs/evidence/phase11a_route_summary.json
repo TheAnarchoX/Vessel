@@ -1,0 +1,24 @@
+{
+  "demonic": {
+    "current": "demonic",
+    "locked": true,
+    "entryTrigger": "confession_yield",
+    "entryTick": 2500,
+    "lockTrigger": "dark_relic",
+    "lockTick": 2900,
+    "preventedSwitches": 1,
+    "historyLength": 4
+  },
+  "ascetic": {
+    "current": "ascetic",
+    "locked": true,
+    "entryTrigger": "floor_descent",
+    "entryTick": 1000,
+    "lockTrigger": "confession_resist",
+    "lockTick": 1500,
+    "preventedSwitches": 1,
+    "historyLength": 3
+  },
+  "deterministicReplay": true,
+  "generatedAt": "2026-03-03T18:56:30.392Z"
+}

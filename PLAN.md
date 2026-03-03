@@ -437,37 +437,277 @@ Make the game robust, tunable, and scalable for content growth.
 
 ---
 
-## Phase 11 — Release Management and Compliance
+## Pre-Phase 11 - Ideation and Scope Distillation (Complete)
 
-### Goal
-Ship in controlled stages with legal confidence and operational readiness.
+### Planning Clarifications Captured
 
-### Scope
-- Alpha:
-  - [ ] One polished floor + one boss.
-  - [ ] Core systems validated (combat, rooms, items, HUD, corruption).
-- Beta:
-  - [ ] Full floor progression playable end-to-end.
-  - [ ] Performance and balance pass complete.
-  - [ ] Save/load + options + accessibility in place.
-- 1.0:
-  - [ ] Content complete.
-  - [ ] QA sign-off.
-  - [ ] Telemetry-informed final rebalance.
-  - [ ] Documentation and contribution guide complete.
-- Legal/license readiness:
-  - [ ] Engine/framework/runtime allows free distribution.
-  - [ ] Art/audio/font assets are original/licensed/public-domain.
-  - [ ] No unintended copyleft contamination.
-  - [ ] Attribution obligations satisfied.
-  - [ ] Deployment platform terms compatible with dependencies.
+- Planning depth: balanced sub-phases (not excessively fragmented).
+- Delivery preference: generated bosses/enemies/items are immediate Phase 11 build targets.
+- Direction shift risk posture: moderate refactors are allowed when they materially improve readability, cohesion, or replay value.
 
-### Exit Criteria
-- Release artifacts, docs, and compliance checks are complete.
-- Deployment can proceed without licensing or quality blockers.
+### Ideation Output Targets
 
-### Agent Prompt (Phase 11)
-"For Phase 11 (Release Management and Compliance): act as Planner + Compliance + QA agents and prepare alpha/beta/1.0 candidates with explicit quality gates, rollback criteria, and evidence bundles for the modularized `src/`-first architecture. Validate release readiness against `README.md` direction plus `SPEC.md` `Licensing & Deployment Policy (Free-Use Requirement)` and `Technical Direction (Revised)`, and ensure `MEMORY.md`/notices reflect final compliance decisions. Require QA outputs, telemetry-backed balance validation, and deployment-readiness checks before approval."
+- 10 bosses.
+- 20 enemy types.
+- 50 items.
+- 5 new mechanics/systems.
+- 10 polish targets.
+- 5 major direction shifts.
+
+### Distilled Core Theme for Phase 11
+
+- Add explicit corruption-route identity with two strategic paths:
+  - Demonic Path (high corruption): volatile, high-risk/high-output power with oppressive AV treatment.
+  - Ascetic Path (low corruption): disciplined survivability/control with cleaner AV language and delayed power spikes.
+- Keep both paths within horror framing: neither is a "hero mode"; both are compromises with distinct costs.
+
+### Pre-Phase 11 Deliverables
+
+- `BACKLOG.md` created with categorized ideas and tags for post-Phase 11 pull-forward planning.
+- `README.md`, `SPEC.md`, and `MEMORY.md` synchronized with Phase 11 planning intent.
+- Phase 11 execution plan added below with sub-phases, acceptance gates, and PR evidence requirements.
+
+### Agent Prompt (Pre-Phase 11)
+
+"For the Pre-Phase 11 ideation and planning agent: act as a long-running Planner agent and generate a wide range of ideas for future content/systems expansion, graphics/sprite/UI/UX direction shifts, and polishing targets. Distill those ideas into concrete Phase 11 scope items with defined acceptance gates and PR evidence requirements, and produce a detailed execution plan for Phase 11 in `PLAN.md` that includes any necessary sub-phases. Create a `BACKLOG.md` file that organizes potential future work items by category (content, systems, polish, etc.) with descriptions and relevant tags. Review `README.md`, `SPEC.md`, and `MEMORY.md` to ensure consistency with the established vision and design principles, and document any necessary updates to those files as part of the Phase 11 planning process."
+
+---
+
+## Phase 11 — Content Expansion, Direction Shifts, and Release Management
+
+### Phase 11 Goal
+
+Ship a content-rich, route-distinct, production-ready build in controlled alpha/beta/1.0 stages with compliance confidence and telemetry-backed quality.
+
+### Phase 11 Scope Items (Concrete)
+
+1. **S11-01: Path Identity System (Demonic vs Ascetic)**
+   - Gameplay impact: introduces route commitment, replayable tradeoffs, and differentiated risk envelopes layered on existing corruption, relic, confession, and ending systems.
+   - Acceptance gates:
+     - Path state machine and route triggers implemented in `src/gameplay/corruptionSystem.js` and integrated systems.
+     - Path-specific modifiers, event hooks, and ending deltas defined as data contracts.
+     - Deterministic scenario tests cover path entry, path lock-in, and path-switch prevention rules.
+   - PR evidence:
+     - Design note documenting route rules and tradeoffs.
+     - Test output for deterministic path checks.
+     - Short gameplay capture for one demonic run and one ascetic run.
+
+2. **S11-02: Boss Expansion Pack (10 bosses)**
+   - Gameplay impact: expands mastery checks with stronger phase identity, forcing build adaptation and route-aware target prioritization.
+   - Acceptance gates:
+     - 10 bosses implemented as deterministic phase state machines.
+     - Every boss has telegraph/read/recover windows and at least one route-reactive behavior.
+     - Replay contract checks cover all phase transitions and victory conditions.
+   - PR evidence:
+     - Boss design matrix (identity, hazards, route interactions).
+     - `scripts/bench/phase3_boss_statemachine_check.js` and replay outputs for new bosses.
+     - Video clips for intro, phase transitions, and failure states.
+
+3. **S11-03: Enemy Roster Expansion (20 enemies)**
+   - Gameplay impact: increases encounter variety and composition pressure while preserving readability under stress.
+   - Acceptance gates:
+     - 20 enemies implemented across behavior contracts (chase/charge/kite/summon/zone/support/disruptor).
+     - Telegraph windows and damage attribution pass readability checks.
+     - Encounter composition remains valid with pressure mix constraints.
+   - PR evidence:
+     - Enemy contract table with archetype and telegraph timing.
+     - `scripts/bench/phase2_enemy_contracts_check.js` output.
+     - Overlay screenshots showing stress-scene readability.
+
+4. **S11-04: Itemization Expansion (50 items)**
+   - Gameplay impact: unlocks broader build expression and path-specific archetypes without dead-build outcomes.
+   - Acceptance gates:
+     - 50 new items added with taxonomy alignment and schema validation.
+     - Synergy matrix updated for pair/triple/tag interactions; anti-synergy safeguards retained.
+     - Simulation demonstrates dead-build rate at or below existing thresholds.
+   - PR evidence:
+     - Item catalog with category tags and path affinity.
+     - `scripts/bench/phase4_item_synergy_check.js` and simulation summaries.
+     - Balance telemetry deltas vs previous baseline.
+
+5. **S11-05: New Systems Pack (5 mechanics/systems)**
+   - Gameplay impact: adds mid-run decision depth and pacing variation while reinforcing horror cohesion.
+   - Acceptance gates:
+     - Five systems implemented and documented with deterministic contracts.
+     - Each system integrates with at least two existing modules (combat/generation/corruption/UI/audio).
+     - New systems include fail-safe validation scripts or tests.
+   - PR evidence:
+     - System specs and integration diagrams.
+     - Test/bench command output proving contract validity.
+     - Before/after pacing telemetry where relevant.
+
+6. **S11-06: Direction Shifts Pack (5 major shifts)**
+   - Gameplay impact: improves readability, tone depth, and long-session comfort without violating horror identity.
+   - Acceptance gates:
+     - Five approved shifts implemented with rationale and rollback strategy.
+     - UI/layout/audio/visual changes pass readability and comfort checks.
+     - Any architecture-impacting shift is documented in `docs/decisions/`.
+   - PR evidence:
+     - Rationale documents per shift.
+     - Before/after screenshots and audio comparisons.
+     - ADRs for refactor-heavy shifts.
+
+7. **S11-07: Polish Pack (10 targets)**
+   - Gameplay impact: raises perceived quality through clearer telegraphs, smoother feedback, and better frame pacing consistency.
+   - Acceptance gates:
+     - 10 polish targets implemented with measurable criteria.
+     - Targets include combat readability, animation smoothness, and perf spike reduction.
+     - No regressions in deterministic checks.
+   - PR evidence:
+     - Polish checklist with measured metrics.
+     - Bench output (`scripts/bench/phase8_runtime_profile.js`, relevant phase checks).
+     - Capture set showing improved feedback moments.
+
+8. **S11-08: Candidate Release + Compliance Bundle**
+   - Gameplay impact: converts expanded content into ship-ready candidates with explicit rollback and legal safety.
+   - Acceptance gates:
+     - Alpha/Beta/1.0 candidate gates defined and met.
+     - License audit and notice updates complete.
+     - QA sign-off and telemetry-backed rebalance complete.
+   - PR evidence:
+     - Candidate checklists, QA reports, and telemetry summary.
+     - `npm run validate` and compliance command outputs.
+     - Updated `THIRD_PARTY_NOTICES.md` and release notes.
+
+### Phase 11 Sub-Phases (Balanced Execution)
+
+#### Phase 11A - Route Foundation + Systems Contracts
+
+##### 11A Scope
+
+- Implement S11-01 (path identity) foundation.
+- Implement first 2 of 5 systems from S11-05.
+- Add content schemas/contracts for path-affinity tagging (boss/enemy/item).
+
+##### 11A Exit Criteria
+
+- Path rules are deterministic and replay-safe.
+- Route-aware data contracts validate in CI.
+
+##### 11A PR Evidence Requirements
+
+- Deterministic route tests and replay logs.
+- Schema validation output.
+- Design note for path tradeoffs and anti-exploit rules.
+
+##### 11A Agent Prompt
+
+"For Phase 11A (Route Foundation + Systems Contracts): act as Planner + Gameplay + Engine collaborators and implement the demonic/ascetic route foundation in `src/gameplay` with deterministic route-entry and lock-in rules tied to confession/relic/corruption triggers. Enforce schema-backed path-affinity tagging for bosses/enemies/items, preserve replay determinism, and capture evidence with deterministic route tests, replay logs, and schema-validation output. Execute the approved 11A scope end-to-end in full before handoff; do not stop at partial implementation."
+
+#### Phase 11B - Combat Content Expansion (Bosses + Enemies)
+
+##### 11B Scope
+
+- Deliver 10 bosses (S11-02) and 20 enemies (S11-03).
+- Integrate route-reactive abilities and telegraph standards.
+
+##### 11B Exit Criteria
+
+- Boss and enemy roster reaches target counts.
+- Readability and encounter composition contracts pass under stress.
+
+##### 11B PR Evidence Requirements
+
+- Boss/enemy matrix docs.
+- Bench outputs for boss/enemy checks.
+- Debug overlay captures from high-density encounters.
+
+##### 11B Agent Prompt
+
+"For Phase 11B (Combat Content Expansion): act as Gameplay + QA agents and deliver the 10-boss/20-enemy expansion using deterministic behavior and boss phase-state contracts in `src/gameplay`. Preserve telegraph/read/recover readability and encounter pressure-mix guarantees under stress, and require reproducible `scripts/bench` outputs plus overlay captures for validation. Execute the approved 11B scope end-to-end in full before handoff; do not stop at partial implementation."
+
+#### Phase 11C - Item and Build Ecosystem Expansion
+
+##### 11C Scope
+
+- Deliver 50-item pack (S11-04).
+- Complete remaining 3 systems from S11-05 where item-linked.
+- Extend synergy simulation and balance instrumentation.
+
+##### 11C Exit Criteria
+
+- Item roster and synergy matrix complete.
+- Dead-build and exploit checks remain within policy thresholds.
+
+##### 11C PR Evidence Requirements
+
+- Item catalog and synergy map.
+- Item simulation output and telemetry diff reports.
+- Regression-free validation logs.
+
+##### 11C Agent Prompt
+
+"For Phase 11C (Item and Build Ecosystem Expansion): act as Gameplay + QA + Balance agents and implement the 50-item expansion with taxonomy consistency, path-affinity hooks, and synergy matrix updates in deterministic `src/` systems. Validate dead-build prevention, anti-synergy safeguards, and balance floors via simulation/telemetry evidence, and block sign-off on any regression in existing deterministic checks. Execute the approved 11C scope end-to-end in full before handoff; do not stop at partial implementation."
+
+#### Phase 11D - Direction Shift Implementation
+
+##### 11D Scope
+
+- Implement 5 major direction shifts (S11-06) including moderate refactors where justified.
+- Ensure AV/UI changes preserve horror cohesion and readability contracts.
+
+##### 11D Exit Criteria
+
+- All direction shifts pass rationale, accessibility, and readability reviews.
+- Architecture-impacting changes are ADR-documented.
+
+##### 11D PR Evidence Requirements
+
+- Before/after screenshots and short clips.
+- Audio A/B snapshots and cue priority notes.
+- ADRs and rollback notes.
+
+##### 11D Agent Prompt
+
+"For Phase 11D (Direction Shift Implementation): act as UX + Audio + Art Direction + Engine collaborators and execute the 5 approved direction shifts, allowing moderate refactors when they improve readability and horror cohesion. Keep deterministic simulation boundaries intact, produce before/after AV evidence, and document architecture-impacting refactors in `docs/decisions/*.md` with rollback notes. Execute the approved 11D scope end-to-end in full before handoff; do not stop at partial implementation."
+
+#### Phase 11E - Polish, Performance, and QA Hardening
+
+##### 11E Scope
+
+- Execute 10 polish targets (S11-07).
+- Run performance and long-session stability checks.
+- Finalize telemetry dashboards and triage thresholds.
+
+##### 11E Exit Criteria
+
+- Polish targets complete with measurable wins.
+- Performance and determinism gates pass on expanded content.
+
+##### 11E PR Evidence Requirements
+
+- Perf benchmark command output and summary.
+- QA matrix results for controls/resolutions/browser/accessibility.
+- Deterministic and save-compat outputs.
+
+##### 11E Agent Prompt
+
+"For Phase 11E (Polish, Performance, and QA Hardening): act as Performance + QA + Engine agents and execute the 10 polish targets with measurable wins across readability, responsiveness, and frame pacing. Use benchmark/stress workflows for evidence, keep save/determinism contracts green, and reject speculative polish changes that do not produce measurable quality or stability gains. Execute the approved 11E scope end-to-end in full before handoff; do not stop at partial implementation."
+
+#### Phase 11F - Release Candidates and Compliance
+
+##### 11F Scope
+
+- Execute S11-08 candidate bundle.
+- Group release gates by candidate:
+  - Alpha candidate: one floor slice with one route-complete boss set and full core loop validation.
+  - Beta candidate: full floor progression, route parity checks, save/options/accessibility locked.
+  - 1.0 candidate: content complete, QA sign-off, telemetry-informed rebalance, docs and notices final.
+
+##### 11F Exit Criteria
+
+- Candidate checklists complete with no unresolved P0/P1 blockers.
+- Compliance evidence complete for dependencies and assets.
+
+##### 11F PR Evidence Requirements
+
+- Candidate gate checklist artifacts.
+- QA and telemetry bundles.
+- Final compliance logs and notice updates.
+
+##### 11F Agent Prompt
+
+"For Phase 11F (Release Candidates and Compliance): act as Planner + Compliance + QA agents and operationalize alpha/beta/1.0 candidate gates with explicit rollback criteria, blocker thresholds, and evidence bundles. Validate release readiness against `README.md` direction and `SPEC.md` licensing/technical policy constraints, require telemetry-backed QA sign-off before advancement, and ensure final notices/compliance artifacts are complete. Execute the approved 11F scope end-to-end in full before handoff; do not stop at partial implementation."
 
 ---
 
@@ -480,7 +720,9 @@ Ship in controlled stages with legal confidence and operational readiness.
 - [x] Phase 1 core feel hardening and initial `src/` runtime foundation completed.
 - [x] Phase 3 boss phase state machines, hazards, and replay completed.
 - [x] Phase 4 item taxonomy, synergy matrix, dead-build safeguards, and simulation completed.
+- [x] Phase 5 corruption identity, endings, and meta-progression completed.
 - [x] Phase 6 dungeon generation constraints, validators, pacing, and economy guarantees completed.
-- [ ] Phase 2.5 entity visual identity and animation baseline pending.
-- [ ] Architecture/toolchain maturation beyond initial foundation (Phase 7 scope) pending.
-- [ ] Quality, performance, and production pipelines pending.
+- [x] Phase 2.5 entity visual identity and animation baseline completed.
+- [x] Phase 7 architecture/toolchain maturation completed.
+- [x] Phase 10 QA/balance telemetry and gate automation established.
+- [ ] Phase 8/9/11 implementation and release candidate execution pending.

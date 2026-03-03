@@ -1,0 +1,26 @@
+[
+  {
+    "id": "shepherd",
+    "name": "SHEPHERD",
+    "pathAffinity": "ascetic",
+    "phaseCount": 2,
+    "hazardProfile": "summon_swarm",
+    "notes": "Penance pressure with summon cadence checks."
+  },
+  {
+    "id": "pit",
+    "name": "THE PIT",
+    "pathAffinity": "demonic",
+    "phaseCount": 3,
+    "hazardProfile": "arena_confinement",
+    "notes": "Aggressive pressure and confinement escalation."
+  },
+  {
+    "id": "choir",
+    "name": "CHOIR",
+    "pathAffinity": "unaligned",
+    "phaseCount": 3,
+    "hazardProfile": "sigil_and_collapse",
+    "notes": "Spatial denial plus orbiting projectile pressure."
+  }
+]

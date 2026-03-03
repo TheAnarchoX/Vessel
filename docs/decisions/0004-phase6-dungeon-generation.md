@@ -53,11 +53,12 @@ Key design choices:
 - **Negative**: Reroll attempts add slight overhead (max 60 observed, typical 1-3).
   Not meaningful for a per-floor generation call.
 - **Risks**: Floor configs may need retuning as content expands. The `rest` room type
-  is new and not yet visually/mechanically implemented in the prototype shell.
+  now has prototype mechanics (soul/corruption recovery shrine choice), but values
+  may need balance passes after broader playtesting.
 
 ## Validation / Evidence
 
-```
+```text
 $ node scripts/bench/phase6_dungeon_gen_check.js
 
 Phase 6 Dungeon Generation & Pacing
