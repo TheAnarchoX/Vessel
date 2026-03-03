@@ -63,6 +63,7 @@ Make minute-1 gameplay feel excellent while establishing the engine foundation e
 - [ ] Add hit-stop microfreeze (30–70ms) for impactful hits.
 - [ ] Add optional aim-buffer queue (last directional shot intent).
 - [ ] Expand tear variants (pierce, split, chain, DOT, aura, siphon).
+- [ ] Phase 7 uplift (allowed in Phase 1): introduce a minimal `src/` runtime seam now (fixed-step loop + instrumentation hooks) when it directly improves feel iteration workflow.
 
 ### Exit Criteria
 - Input and attack feedback are consistently responsive and readable.
