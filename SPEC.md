@@ -122,13 +122,46 @@ Use this checklist for any dependency/tooling introduction or update:
 - Constant visibility for Soul, Corruption, floor identity, passive inventory, and minimap.
 - High-contrast readability under dark palette.
 
+### Corruption HUD Integration (Phase 5)
+
+- Corruption meter rendered with gothic border, fill color shifts per tier (bone → yellow → red → purple).
+- Tier label and percentage always visible for at-a-glance corruption awareness.
+- Screen vignette intensifies with corruption tier (none → dark amber → crimson → deep purple).
+- Whisper text displays as italic serif overlay at 82% canvas height, fades in/out.
+- Floor narrative beats render as centered dark overlay boxes with gothic borders during transitions.
+- Confession room prompt shows resist/yield options with color-coded cues (green resist, red yield).
+- Ending screen uses full-screen dark overlay with serif title and wrapped description.
+- All HUD corruption elements maintain high-contrast readability against the dark base palette.
+
 ## Audio Direction
 
 - Procedural Web Audio cues for fire, hit, damage, unlock, pickup, boss entry, and death.
 - Horror-driven tonal choices: low drones, distorted lows, tense blips.
+
+### Corruption Audio Treatment (Phase 5)
+
+- Corruption tier drives ambient drone frequency (0 Hz pure → 55 Hz tainted → 44 Hz corrupt → 33 Hz consumed) and gain.
+- Reverb wet mix increases with corruption (5% → 35%), creating claustrophobic audio space.
+- Low-pass filter narrows with corruption (20 kHz → 6 kHz), dulling high-frequency clarity.
+- Distortion parameter rises per tier (0 → 0.3), degrading audio purity.
+- Whisper text is accompanied by a low 220 Hz breathy tone (1.8 s, gain-ramped).
+- Tier transitions emit unique impact cues: hollow thud (tainted), deep distorted hit (corrupt), subsonic rumble (consumed).
+- All audio parameters are data-driven contracts in `src/presentation/corruptionEffects.js`; synthesis is deferred to the audio layer.
 
 ## Thematic Rules
 
 - Horror tone only; no comedy framing.
 - The player is the vessel, not a heroic chosen one.
 - Progression should feel like spiritual erosion, not power fantasy alone.
+
+### Corruption Identity (Phase 5)
+
+- Corruption (0–100) is the narrative spine: it gates endings, alters tone, and reshapes mechanics.
+- Four tiers—Unmarked (0–24), Tainted (25–49), Corrupted (50–74), Vessel Consumed (75–100)—each carry distinct mechanical, visual, and audio signatures.
+- Tear color progression (white → yellow → red → black) is the primary in-game corruption readability signal.
+- Confession rooms offer resist/yield choices that anchor moral framing to mechanics.
+- Relics (holy/dark) are physical corruption anchors that gate specific ending paths.
+- Five conditional endings (Liberation, Martyrdom, Communion, Consumed, Vessel Ascendant) reflect player tradeoffs, not power.
+- Floor narrative beats change text by tier to reinforce erosion framing.
+- Whisper system provides context-aware horror text (boss proximity, low soul, high corruption, tier transitions).
+- Meta-progression unlocks are tied to ending discovery, rewarding breadth of moral exploration.

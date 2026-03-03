@@ -480,7 +480,7 @@
 
       for (let i=G.shots.length-1;i>=0;i--) {
         const s=G.shots[i];
-        for (const e of G.room.enemies) if (e.hp>0 && Math.hypot(s.x-e.x,s.y-e.y)<e.r+5) {
+        for (const e of G.room.enemies) if (e.hp>0 && e !== s._chainSource && Math.hypot(s.x-e.x,s.y-e.y)<e.r+5) {
           const isBoss = e === G.activeBoss;
           if (isBoss && VesselGameplay.damageBoss) { VesselGameplay.damageBoss(e, s.damage); }
           else { e.hp-=s.damage; }
@@ -502,7 +502,7 @@
           if (s.chain > 0 && !s.pierce) {
             let chainTarget = null, chainDist = Infinity;
             for (const ce of G.room.enemies) { if (ce !== e && ce.hp > 0) { const cd = Math.hypot(ce.x - e.x, ce.y - e.y); if (cd < chainDist) { chainDist = cd; chainTarget = ce; } } }
-            if (chainTarget) { const cd = Math.hypot(chainTarget.x - e.x, chainTarget.y - e.y) || 1; G.shots.push({x:e.x,y:e.y,vx:(chainTarget.x-e.x)/cd*G.player.shotSpeed,vy:(chainTarget.y-e.y)/cd*G.player.shotSpeed,life:chainDist/G.player.shotSpeed+0.3,damage:s.damage*0.7,pierce:false,slow:s.slow,homing:false,dot:s.dot,chain:s.chain-1,color:"#c9a030"}); }
+            if (chainTarget) { const cd = Math.hypot(chainTarget.x - e.x, chainTarget.y - e.y) || 1; G.shots.push({x:e.x,y:e.y,vx:(chainTarget.x-e.x)/cd*G.player.shotSpeed,vy:(chainTarget.y-e.y)/cd*G.player.shotSpeed,life:chainDist/G.player.shotSpeed+0.3,damage:s.damage*0.7,pierce:false,slow:s.slow,homing:false,dot:s.dot,chain:s.chain-1,color:"#c9a030",_chainSource:e}); }
           }
           if (!s.pierce) { G.shots.splice(i,1); break; }
         }
@@ -750,7 +750,7 @@
       const miniRoomColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050" };
       const miniRoomLabels = { boss:"B", altar:"A", confession:"?", reliquary:"R", start:"S" };
       for (const r of G.dungeon.rooms) { const x=mx+(r.x-2)*14,y=my+(r.y-2)*14; const vis=r.visited||p.mapReveal; ctx.fillStyle=r===G.room?"#f0d477":(vis?(miniRoomColors[r.type]||"#8b6d7c"):"#291723"); ctx.fillRect(x,y,10,10); if (vis && miniRoomLabels[r.type]) { ctx.fillStyle=r===G.room?"#1a0a08":"#d8d0c2"; ctx.font="7px monospace"; ctx.fillText(miniRoomLabels[r.type],x+2,y+8); } }
-      if (G.msgT>0) { ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,ROOM_Y+TILE+20); }
+      if (G.msgT>0) { ctx.save(); ctx.globalAlpha=Math.min(1,G.msgT); ctx.font="bold 22px monospace"; ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,ROOM_Y+TILE+46); ctx.restore(); }
     }
     function drawPlaying() {
       const presentation = globalThis.VesselPresentation;

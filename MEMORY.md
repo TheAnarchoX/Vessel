@@ -50,3 +50,58 @@
 - Item frequency skew: < 1.5x (min/max pick ratio).
 - All 25 items appear at least once across simulated runs.
 - Synergy hit rate: every defined synergy fires in simulation.
+
+## Phase 5 Corruption System Assumptions
+
+### Corruption Tiers
+
+- 4 tiers: Unmarked (0–24), Tainted (25–49), Corrupted (50–74), Vessel Consumed (75–100).
+- Each tier has distinct mechanical effects, visual palettes, and audio parameters.
+- Tier transitions are tracked and trigger whisper/audio cues.
+
+### Mechanical Effects by Tier
+
+- Pure: no modifiers (baseline).
+- Tainted: +10% damage, +5% tear rate, no soul decay.
+- Corrupt: +25% damage, +10% tear rate, 0.02 soul/sec decay, 10% dodge window reduction.
+- Consumed: +50% damage, +20% tear rate, 0.05 soul/sec decay, 20% dodge window reduction.
+- Power scales with corruption, but soul decay creates attrition pressure—not power fantasy.
+
+### Corruption Sources
+
+- Item pickups: item-defined delta (varies per item, see Phase 4 data).
+- Altar sacrifice: +8, confession yield: +12, confession resist: −5.
+- Boss kill: +5, floor descent: +3, soul depletion: +2.
+- Holy relics: −3 to −8. Dark relics: +12 to +18.
+
+### Ending Conditions
+
+- 5 endings: Liberation (low corruption, 3+ resists), Martyrdom (mid-low, 3+ boss kills, 2+ resists), Communion (mid-high, mixed confessions), Consumed (high corruption), Vessel Ascendant (very high, 3+ yields, 2+ dark relics).
+- Endings are evaluated by priority; consumed is fallback.
+- Each ending grants a meta-unlock affecting future runs.
+
+### Whisper System
+
+- Context pools: high_corruption (6 lines), low_soul (4), boss_approach (4), floor_descent (4).
+- Tier transition whispers: 1 per tier boundary crossed.
+- Confession whispers: 1 per resist/yield choice.
+- Selection uses deterministic RNG for reproducibility.
+
+### Floor Narratives
+
+- 4 floors × 4 tiers = 16 narrative text variants.
+- Text adapts to current corruption tier at floor entry.
+- Horror tone maintained across all variants; no comedy.
+
+### Relics
+
+- 3 holy relics (saints_finger, blessed_water, prophets_eye): corruption −3 to −8.
+- 3 dark relics (bone_idol, black_scripture, worm_heart): corruption +12 to +18.
+- Relic acquisition is tracked for ending evaluation.
+
+### Simulation Validation (seed=42, 500 runs)
+
+- All 5 endings must be reachable across the scenario space.
+- Tier transitions fire for tainted/corrupt/consumed.
+- Soul decay triggers in corrupt and consumed tiers.
+- Whispers and narratives fire in every simulated run.

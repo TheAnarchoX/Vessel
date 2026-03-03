@@ -212,6 +212,7 @@ Tie systems and story to spiritual erosion, not generic power fantasy.
 - [ ] Add context-aware whisper system (boss, low soul, high corruption).
 - [ ] Add narrative beats after each floor.
 - [ ] Add conditional endings (corruption + choices + relic path).
+- [ ] Add progression tracking for discovered endings and meta-progression unlocks.
 - [ ] Add unlock meta-progression linked to discovered endings.
 
 ### Exit Criteria
