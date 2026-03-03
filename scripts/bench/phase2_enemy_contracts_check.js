@@ -2,6 +2,7 @@ const assert = require("assert");
 const { advanceFixedStep } = require("../../src/core/fixedStep.js");
 const {
   BEHAVIOR_TYPES,
+  ELITE_MODIFIERS,
   createEnemyBehaviorState,
   updateEnemyBehavior,
   buildEncounterDebugOverlay,
@@ -73,6 +74,21 @@ for (const path of attackPathEvidence) {
     path.behavior,
     JSON.stringify({ transitions: path.transitions.slice(0, 6), firstAction: path.firstAction, overlay: path.overlay })
   );
+}
+
+for (const [modifier, scales] of Object.entries(ELITE_MODIFIERS)) {
+  const elite = createEnemyBehaviorState({
+    id: `elite-${modifier}`,
+    behavior: "chase",
+    speed: 100,
+    health: 10,
+    modifier,
+  });
+  if (scales.speedScale) assert.strictEqual(elite.speed, 100 * scales.speedScale, `${modifier} speed scaling mismatch`);
+  if (scales.healthScale) assert.strictEqual(elite.health, 10 * scales.healthScale, `${modifier} health scaling mismatch`);
+  if (scales.cooldownScale) assert.strictEqual(elite.cooldownScale, scales.cooldownScale, `${modifier} cooldown scaling mismatch`);
+  if (scales.damageScale) assert.strictEqual(elite.damageScale, scales.damageScale, `${modifier} damage scaling mismatch`);
+  console.log("phase2_elite_variant", modifier, JSON.stringify({ speed: elite.speed, health: elite.health }));
 }
 
 const roomEnemies = composeEncounter({ seed: 77, roomIntent: "combat", wave: 4 });
