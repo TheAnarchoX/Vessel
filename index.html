@@ -31,6 +31,7 @@
   <script src="src/core/fixedStep.js"></script>
   <script src="src/gameplay/feelMetrics.js"></script>
   <script src="src/gameplay/enemyContracts.js"></script>
+  <script src="src/presentation/entityVisuals.js"></script>
   <script src="src/engine/runtime.js"></script>
   <script>
     const canvas = document.getElementById("game");
@@ -47,6 +48,9 @@
     const PREVIEW_AMOUNT_PRECISION = 2;
     const MAX_PREVIEW_LOGS = 8;
     const FEEL_EVAL_SHOT_INTERVAL = 4;
+    const PHASE25_PANEL_WIDTH = 376;
+    const PHASE25_PANEL_HEIGHT = 164;
+    const PHASE25_PANEL_MARGIN = 14;
     const FEEL_TARGETS = { maxP95InputLatencyMs: 130, maxCadenceErrorRatio: 0.2, expectedCadenceMs: 1000 / 1.5, minSamples: 8 };
 
     const keys = new Set(), pressed = new Set();
@@ -54,7 +58,7 @@
       if (!keys.has(e.code)) pressed.add(e.code);
       keys.add(e.code);
       queueShotIntent(e.code, performance.now());
-      if (["Tab","F3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
+      if (["Tab","F3","F4","F5","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
       initAudio();
     });
     addEventListener("keyup", (e) => keys.delete(e.code));
@@ -92,11 +96,24 @@
       return { x: W/2, y: H/2, vx: 0, vy: 0, accel: MOVE_TUNING.accel, friction: MOVE_TUNING.friction, r: 11, soul: 6, maxSoul: 6, corruption: 0, tears: 1.5, damage: 1, speed: 180, range: 400, shotSpeed: 320, damageReduction: 0, inv: 0, fireCd: 0, items: [], extraLife: 0, pierce: false, slow: false };
     }
 
+    function createObservedStateTracker() {
+      return { player: new Set(), enemy: new Set(), item: new Set(), boss: new Set() };
+    }
+    function observePhase25State(group, state) {
+      if (!state || !G.phase25Visuals?.observed?.[group]) return;
+      G.phase25Visuals.observed[group].add(state);
+    }
+    function formatObservedStates(group) {
+      const seen = G.phase25Visuals?.observed?.[group];
+      if (!seen || seen.size === 0) return "none";
+      return Array.from(seen).join("|");
+    }
+
     const G = {
       state: "title", floor: 0, dungeon: null, room: null, player: null, shots: [], enemyShots: [],
       msg: "", msgT: 0, mapOpen: false, flash: 0, shake: 0, endingTitle: "", endingLine: "",
       hitStop: 0, shotIntent: null, feelMetrics: VesselGameplay.createFeelMetrics(), feelFailures: [],
-      phase2Preview: null
+      phase2Preview: null, phase25Visuals: { enabled: true, checklist: false, observed: createObservedStateTracker() }
     };
 
     function behaviorColor(behavior) {
@@ -232,7 +249,7 @@
         seraph:[5,85,1,"#ca8054"], choir:[3,65,1,"#8d5ca8"], tendril:[8,0,2,"#120814"],
         shepherd:[36,64,1,"#6a3a2b"], pit:[58,88,1.5,"#170812"]
       }[type];
-      return { type, x, y, r: (type==="shepherd"||type==="pit")?36:(type==="tendril"?22:14), hp: stat[0], maxHp: stat[0], speed: stat[1], damage: stat[2], color: stat[3], cd: Math.random()*1.5, phase: 1, slowT: 0, split:false, delay:[] };
+      return { type, x, y, r: (type==="shepherd"||type==="pit")?36:(type==="tendril"?22:14), hp: stat[0], maxHp: stat[0], speed: stat[1], damage: stat[2], color: stat[3], cd: Math.random()*1.5, phase: 1, slowT: 0, hitT: 0, spawnT: 0.6, split:false, delay:[] };
     }
     function enemyTypeForFloor() {
       if (G.floor===0) return randomOf(["penitent","hollowed","wisp"]);
@@ -249,9 +266,9 @@
         if (G.room.type==="boss") { G.room.enemies.push(spawnEnemy(G.floor===3?"pit":"shepherd",W/2,H/2-40)); sfxBoss(); }
         if (G.room.type==="altar") {
           const a = randomOf(itemPool), b = randomOf(itemPool.filter(i=>i!==a));
-          G.room.pickups = [{x:W/2-90,y:H/2,item:a},{x:W/2+90,y:H/2,item:b}];
+          G.room.pickups = [{x:W/2-90,y:H/2,item:a,spawnT:0.5},{x:W/2+90,y:H/2,item:b,spawnT:0.5}];
         }
-        if (G.room.type==="reliquary") G.room.pickups = [{x:ROOM_X+ROOM_PX_W-110,y:H/2,item:randomOf(itemPool),hidden:true}];
+        if (G.room.type==="reliquary") G.room.pickups = [{x:ROOM_X+ROOM_PX_W-110,y:H/2,item:randomOf(itemPool),hidden:true,spawnT:0.5}];
       }
     }
     function roomLocked(){ return !G.room.cleared && (G.room.type==="combat"||G.room.type==="boss"); }
@@ -263,6 +280,7 @@
     }
     function startRun() {
       G.floor = 0; G.player = makePlayer();
+      G.phase25Visuals.observed = createObservedStateTracker();
       ensurePhase2Preview();
       loadFloor(true);
       setMsg("DESCEND INTO THE NAVE", 2.5);
@@ -307,6 +325,8 @@
       const p = G.player;
       if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
       if (pressed.has("F3")) { ensurePhase2Preview(); if (G.phase2Preview) G.phase2Preview.enabled = !G.phase2Preview.enabled; }
+      if (pressed.has("F4")) G.phase25Visuals.enabled = !G.phase25Visuals.enabled;
+      if (pressed.has("F5")) G.phase25Visuals.checklist = !G.phase25Visuals.checklist;
       // Hit-stop deliberately freezes gameplay updates for a short readability pulse.
       // This includes player timers (invulnerability/fire cooldown) for a true micro-freeze.
       if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); return; }
@@ -333,14 +353,16 @@
         const s=arr[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; s.life-=dt;
         if (s.x<l||s.x>r||s.y<t||s.y>b||s.life<=0) arr.splice(i,1);
       }
+      for (const pck of G.room.pickups) pck.spawnT = Math.max(0, pck.spawnT - dt);
       for (let i=G.enemyShots.length-1;i>=0;i--) if (Math.hypot(G.enemyShots[i].x-p.x,G.enemyShots[i].y-p.y)<p.r+5) { damagePlayer(G.enemyShots[i].damage||0.5); G.enemyShots.splice(i,1); }
 
       for (let i=G.shots.length-1;i>=0;i--) {
         const s=G.shots[i];
         for (const e of G.room.enemies) if (e.hp>0 && Math.hypot(s.x-e.x,s.y-e.y)<e.r+5) {
-          e.hp-=s.damage; if (s.slow) e.slowT=0.7; sfxHit();
+          e.hp-=s.damage; if (s.slow) e.slowT=0.7; e.hitT = 0.24; sfxHit();
           G.hitStop = Math.max(G.hitStop, HIT_STOP_MS / 1000);
           VesselGameplay.recordHitstop(G.feelMetrics, HIT_STOP_MS);
+          if (e.hp <= 0) observePhase25State((e.type==="shepherd"||e.type==="pit") ? "boss" : "enemy", "death");
           if (!s.pierce) { G.shots.splice(i,1); break; }
         }
       }
@@ -348,7 +370,7 @@
       const es = G.room.enemies;
       for (const e of es) {
         if (e.hp<=0) continue;
-        e.cd -= dt; e.slowT = Math.max(0,e.slowT-dt);
+        e.cd -= dt; e.slowT = Math.max(0,e.slowT-dt); e.hitT = Math.max(0,e.hitT-dt); e.spawnT = Math.max(0,e.spawnT-dt);
         const sp = e.speed*(e.slowT?0.5:1), dx=p.x-e.x, dy=p.y-e.y, d=Math.hypot(dx,dy)||1;
         if (["penitent","bonecrawler","plague","choir"].includes(e.type)) {
           const z = e.type==="bonecrawler" ? Math.sin(performance.now()*0.01 + e.x*0.01)*0.8 : 0;
@@ -399,12 +421,12 @@
 
       if (pressed.has("KeyE")) {
         if (G.room.type==="altar") {
-          for (const pck of G.room.pickups) if (Math.hypot(p.x-pck.x,p.y-pck.y)<46) { applyItem(pck.item); G.player.soul=Math.max(1,G.player.soul-0.5); G.room.pickups=[]; break; }
+          for (const pck of G.room.pickups) if (Math.hypot(p.x-pck.x,p.y-pck.y)<46) { observePhase25State("item", "pickup"); applyItem(pck.item); G.player.soul=Math.max(1,G.player.soul-0.5); G.room.pickups=[]; break; }
         }
         if (G.room.type==="reliquary" && G.room.pickups[0]) {
           const pck=G.room.pickups[0], reveal = p.x>ROOM_X+ROOM_PX_W-TILE*2.5 && Math.abs(p.y-H/2)<64;
           if (reveal) pck.hidden=false;
-          if (!pck.hidden && Math.hypot(p.x-pck.x,p.y-pck.y)<46) { applyItem(pck.item); G.room.pickups=[]; }
+          if (!pck.hidden && Math.hypot(p.x-pck.x,p.y-pck.y)<46) { observePhase25State("item", "pickup"); applyItem(pck.item); G.room.pickups=[]; }
         }
         if (G.room.type==="confession" && !G.room.choiceDone) {
           if (p.x < W/2) { p.damage += 1; p.soul = Math.max(1,p.soul-1); }
@@ -465,6 +487,8 @@
       ctx.fillText("ITEMS: "+(p.items.slice(-4).join(" | ")||"NONE"),16,H-10);
       ctx.fillStyle = G.phase2Preview?.enabled ? "#d4be6c" : "#7e6a76";
       ctx.fillText(`F3 PHASE2 PREVIEW ${G.phase2Preview?.enabled ? "ON" : "OFF"}`,W/2-98,26);
+      ctx.fillStyle = G.phase25Visuals.enabled ? "#8acb8a" : "#a98989";
+      ctx.fillText(`F4 VISUAL BASELINE ${G.phase25Visuals.enabled ? "ON" : "LEGACY"} / F5 CHECKLIST ${G.phase25Visuals.checklist ? "ON" : "OFF"}`,W/2-202,H-10);
       const feelSummary = VesselGameplay.summarizeFeel(G.feelMetrics);
       ctx.fillStyle = G.feelFailures.length ? "#d87070" : "#8acb8a";
       ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
@@ -473,20 +497,35 @@
       if (G.msgT>0) { ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,50); }
     }
     function drawPlaying() {
+      const presentation = globalThis.VesselPresentation;
+      const usePresentation = G.phase25Visuals.enabled && presentation;
+      const nowMs = performance.now();
       drawRoom();
       for (const p of G.room.pickups) {
         if (p.hidden) continue;
-        ctx.fillStyle="#2d1f12"; ctx.fillRect(p.x-14,p.y+8,28,8);
-        ctx.fillStyle="#f2e4bf"; ctx.fillRect(p.x-10,p.y-18,20,28);
+        if (usePresentation) observePhase25State("item", presentation.renderPickup(ctx, p, nowMs));
+        else {
+          ctx.fillStyle="#2d1f12"; ctx.fillRect(p.x-14,p.y+8,28,8);
+          ctx.fillStyle="#f2e4bf"; ctx.fillRect(p.x-10,p.y-18,20,28);
+        }
         if (p.item) { ctx.fillStyle="#e8c95e"; ctx.fillText(p.item.name,p.x-60,p.y-24); }
       }
-      for (const s of G.shots) { ctx.fillStyle=s.color; ctx.fillRect(s.x-4,s.y-4,8,8); }
-      for (const s of G.enemyShots) { ctx.fillStyle=s.color||"#a33"; ctx.fillRect(s.x-4,s.y-4,8,8); }
+      for (const s of G.shots) {
+        if (usePresentation) presentation.renderProjectile(ctx, s);
+        else { ctx.fillStyle=s.color; ctx.fillRect(s.x-4,s.y-4,8,8); }
+      }
+      for (const s of G.enemyShots) {
+        if (usePresentation) presentation.renderProjectile(ctx, s);
+        else { ctx.fillStyle=s.color||"#a33"; ctx.fillRect(s.x-4,s.y-4,8,8); }
+      }
       for (const e of G.room.enemies) if (e.hp>0) {
-        ctx.fillStyle=e.color;
-        if (["wisp","seraph"].includes(e.type)) { ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
-        else if (e.type==="tendril") ctx.fillRect(e.x-8,e.y-20,16,40);
-        else ctx.fillRect(e.x-e.r*0.6,e.y-e.r*0.7,e.r*1.2,e.r*1.4);
+        if (usePresentation) observePhase25State((e.type==="shepherd"||e.type==="pit") ? "boss" : "enemy", presentation.renderEnemy(ctx, e, nowMs));
+        else {
+          ctx.fillStyle=e.color;
+          if (["wisp","seraph"].includes(e.type)) { ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
+          else if (e.type==="tendril") ctx.fillRect(e.x-8,e.y-20,16,40);
+          else ctx.fillRect(e.x-e.r*0.6,e.y-e.r*0.7,e.r*1.2,e.r*1.4);
+        }
         if (e.type==="shepherd"||e.type==="pit") {
           ctx.fillStyle="#2a0010"; ctx.fillRect(W/2-140,ROOM_Y+10,280,10);
           ctx.fillStyle="#bf4b54"; ctx.fillRect(W/2-140,ROOM_Y+10,280*Math.max(0,e.hp/e.maxHp),10);
@@ -504,11 +543,33 @@
         ctx.fillStyle = "#dfd2be"; ctx.fillText("PHASE2 CONTRACT PREVIEW", ROOM_X + 24, ROOM_Y + 34);
         debugLines.slice(0, 7).forEach((line, idx) => ctx.fillText(line, ROOM_X + 24, ROOM_Y + 54 + idx * 16));
       }
+      if (G.phase25Visuals.checklist && presentation) {
+        const checklist = presentation.ANIMATION_CHECKLIST;
+        const summary = presentation.summarizeReadability(G.room.enemies.filter(e => e.hp > 0));
+        const rows = [
+          `PLAYER ${checklist.player.join(", ")}`,
+          `ENEMY ${checklist.enemy.join(", ")}`,
+          `ITEM ${checklist.item.join(", ")}`,
+          `BOSS ${checklist.boss.join(", ")}`,
+          `SEEN P:${formatObservedStates("player")} E:${formatObservedStates("enemy")}`,
+          `SEEN I:${formatObservedStates("item")} B:${formatObservedStates("boss")}`,
+          `STRESS silhouettes=${summary.distinctSilhouettes} types=${summary.distinctTypes} live=${summary.total}`,
+        ];
+        const panelX = ROOM_X + ROOM_PX_W - PHASE25_PANEL_WIDTH - PHASE25_PANEL_MARGIN;
+        const panelY = ROOM_Y + PHASE25_PANEL_MARGIN;
+        ctx.fillStyle = "rgba(9,3,12,0.88)"; ctx.fillRect(panelX, panelY, PHASE25_PANEL_WIDTH, PHASE25_PANEL_HEIGHT);
+        ctx.strokeStyle = "#6d4a58"; ctx.strokeRect(panelX, panelY, PHASE25_PANEL_WIDTH, PHASE25_PANEL_HEIGHT);
+        ctx.fillStyle = "#dfd2be"; ctx.fillText("PHASE2.5 READABILITY CHECKLIST", panelX + 10, panelY + 20);
+        rows.forEach((line, idx) => ctx.fillText(line, panelX + 10, panelY + 40 + idx * 16));
+      }
       const p=G.player;
       if (!(p.inv>0&&((performance.now()/50)|0)%2===0)) {
-        ctx.fillStyle=p.corruption>50?"#d0b090":"#ead9c2"; ctx.fillRect(p.x-8,p.y-12,16,24);
-        ctx.fillStyle="#111"; ctx.fillRect(p.x-6,p.y-9,4,4); ctx.fillRect(p.x+2,p.y-9,4,4);
-        if (p.corruption>50) { ctx.strokeStyle="rgba(10,0,12,0.65)"; ctx.beginPath(); ctx.arc(p.x,p.y,15+Math.sin(performance.now()*0.01),0,Math.PI*2); ctx.stroke(); }
+        if (usePresentation) observePhase25State("player", presentation.renderPlayer(ctx, p, nowMs));
+        else {
+          ctx.fillStyle=p.corruption>50?"#d0b090":"#ead9c2"; ctx.fillRect(p.x-8,p.y-12,16,24);
+          ctx.fillStyle="#111"; ctx.fillRect(p.x-6,p.y-9,4,4); ctx.fillRect(p.x+2,p.y-9,4,4);
+          if (p.corruption>50) { ctx.strokeStyle="rgba(10,0,12,0.65)"; ctx.beginPath(); ctx.arc(p.x,p.y,15+Math.sin(performance.now()*0.01),0,Math.PI*2); ctx.stroke(); }
+        }
       }
       drawHUD();
       if (G.mapOpen) {
