@@ -348,6 +348,97 @@
       return randomOf(["seraph","hollowed","penitent"]);
     }
 
+    function createOptionPedestal(name, subtitle, description, optionType, x, y) {
+      return {
+        x,
+        y,
+        optionType,
+        spawnT: 0.5,
+        item: {
+          name,
+          subtitle,
+          desc: description,
+        },
+      };
+    }
+
+    function createRestRoomOptions() {
+      return [
+        createOptionPedestal(
+          "COMMUNE",
+          "Restore vitality",
+          "+2 SOUL",
+          "rest_commune",
+          W / 2 - 90,
+          H / 2,
+        ),
+        createOptionPedestal(
+          "VIGIL",
+          "Steady your vessel",
+          "+1 MAX SOUL, +1 SOUL",
+          "rest_vigil",
+          W / 2 + 90,
+          H / 2,
+        ),
+      ];
+    }
+
+    function createConfessionRoomOptions() {
+      return [
+        createOptionPedestal(
+          "WRATH",
+          "Strike first",
+          "+1 DAMAGE, -1 SOUL",
+          "confession_wrath",
+          W / 2 - 90,
+          H / 2,
+        ),
+        createOptionPedestal(
+          "PENANCE",
+          "Bend the flesh",
+          "+2 MAX SOUL, +2 SOUL, +15 CORRUPTION",
+          "confession_penance",
+          W / 2 + 90,
+          H / 2,
+        ),
+      ];
+    }
+
+    function applyOptionPickup(pck) {
+      const p = G.player;
+      if (!pck || !pck.optionType) return false;
+
+      if (pck.optionType === "rest_commune") {
+        p.soul = Math.min(p.maxSoul, p.soul + 2);
+        setMsg("RESTORED", 1.8);
+        return true;
+      }
+      if (pck.optionType === "rest_vigil") {
+        p.maxSoul += 1;
+        p.soul = Math.min(p.maxSoul, p.soul + 1);
+        setMsg("VIGIL ACCEPTED", 1.8);
+        return true;
+      }
+      if (pck.optionType === "confession_wrath") {
+        p.damage += 1;
+        p.soul = Math.max(1, p.soul - 1);
+        G.room.choiceDone = true;
+        G.room.cleared = true;
+        setMsg("THE CONFESSION IS ACCEPTED", 2);
+        return true;
+      }
+      if (pck.optionType === "confession_penance") {
+        p.maxSoul += 2;
+        p.soul = Math.min(p.maxSoul, p.soul + 2);
+        p.corruption = Math.min(100, p.corruption + 15);
+        G.room.choiceDone = true;
+        G.room.cleared = true;
+        setMsg("THE CONFESSION IS ACCEPTED", 2);
+        return true;
+      }
+      return false;
+    }
+
     function enterRoom() {
       G.room.visited = true; G.shots = []; G.enemyShots = [];
       if (G.room.type !== "boss") { G.activeBoss = null; G.bossInputLocked = false; G.bossReplaySession = null; G.bossPhaseFlash = 0; }
@@ -387,6 +478,12 @@
             const def = VesselGameplay.getItemDef(id);
             return { x: ROOM_X+ROOM_PX_W-110, y: H/2 - 40 + i * 80, itemId: id, item: def, hidden: true, spawnT: 0.5 };
           });
+        }
+        if (G.room.type === "rest") {
+          G.room.pickups = createRestRoomOptions();
+        }
+        if (G.room.type === "confession") {
+          G.room.pickups = createConfessionRoomOptions();
         }
       }
     }
@@ -829,10 +926,13 @@
         if (dist < ITEM_TOOLTIP_RANGE) G.nearbyItem = pck;
         if (dist < ITEM_PICKUP_RANGE) {
           observePhase25State("item", "pickup");
-          applyItemById(pck.itemId);
+          const usedOption = applyOptionPickup(pck);
+          if (!usedOption) applyItemById(pck.itemId);
           pck.taken = true;
           if (G.room.type === "altar") {
             G.player.soul = Math.max(1, G.player.soul - 0.5);
+          }
+          if (G.room.type === "altar" || G.room.type === "rest" || G.room.type === "confession") {
             for (const other of G.room.pickups) if (other !== pck) other.taken = true;
           }
           if (pck.bossDrop) {
@@ -855,14 +955,6 @@
           G.floor++; loadFloor();
         }
       }
-      if (inputProfile.wasActionPressed(pressed, "interact")) {
-        if (G.room.type==="confession" && !G.room.choiceDone) {
-          if (p.x < W/2) { p.damage += 1; p.soul = Math.max(1,p.soul-1); }
-          else { p.maxSoul += 2; p.soul += 2; p.corruption = Math.min(100,p.corruption+15); }
-          G.room.choiceDone = true; G.room.cleared = true; setMsg("THE CONFESSION IS ACCEPTED",2);
-        }
-      }
-
       if (p.corruption>=100 && G.floor===3 && G.room.type==="boss") {
         G.state = "ending";
         G.endingTitle = "ENDING C — CONSUMED";
@@ -1191,27 +1283,10 @@
         }
         if (p.item && !p.hidden && !p.taken) { ctx.fillStyle="#e8c95e"; ctx.font="12px monospace"; ctx.fillText(p.item.name,p.x-ctx.measureText(p.item.name).width/2,p.y-24); }
       }
-      // Confession room visual cues
+      // Confession room visual cue now points at pedestal choice interaction.
       if (G.room.type === "confession" && !G.room.choiceDone) {
-        // Dividing line
-        ctx.strokeStyle = "#4070a0"; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
-        ctx.beginPath(); ctx.moveTo(W/2, ROOM_Y + TILE + 8); ctx.lineTo(W/2, ROOM_Y + ROOM_PX_H - TILE - 8); ctx.stroke();
-        ctx.setLineDash([]);
-        // Left choice: +1 DMG, -1 SOUL
-        ctx.fillStyle = "#bf4b54"; ctx.font = "13px monospace";
-        ctx.fillText("WRATH", W/2 - 180, H/2 - 30);
-        ctx.fillStyle = "#9a8a78"; ctx.font = "11px monospace";
-        ctx.fillText("+1 DAMAGE", W/2 - 180, H/2 - 12);
-        ctx.fillText("-1 SOUL", W/2 - 180, H/2 + 4);
-        // Right choice: +2 MAX SOUL, +15 CORRUPTION
-        ctx.fillStyle = "#8b4abf"; ctx.font = "13px monospace";
-        ctx.fillText("PENANCE", W/2 + 80, H/2 - 30);
-        ctx.fillStyle = "#9a8a78"; ctx.font = "11px monospace";
-        ctx.fillText("+2 MAX SOUL", W/2 + 80, H/2 - 12);
-        ctx.fillText("+15 CORRUPTION", W/2 + 80, H/2 + 4);
-        // Prompt
         ctx.fillStyle = "#4070a0"; ctx.font = "11px monospace";
-        ctx.fillText("STAND ON A SIDE AND PRESS E", W/2 - 105, ROOM_Y + ROOM_PX_H - TILE - 16);
+        ctx.fillText("CHOOSE A CONFESSION PEDESTAL", W/2 - 104, ROOM_Y + ROOM_PX_H - TILE - 16);
       }
       if (G.room.type === "confession" && G.room.choiceDone) {
         ctx.fillStyle = "#3a2840"; ctx.font = "12px monospace";
