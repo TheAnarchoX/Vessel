@@ -13,6 +13,15 @@ const {
 
 const fixedDt = 1 / 120;
 const STEP_MS = fixedDt * 1000;
+const ELITE_BASE_SPEED = 100;
+const ELITE_BASE_HEALTH = 10;
+
+function assertScaling(actual, base, scale, propertyName, modifier) {
+  assert.ok(typeof scale === "number" || typeof scale === "undefined", `${modifier} ${propertyName} scale must be number or undefined`);
+  const expected = typeof scale === "number" ? base * scale : base;
+  const reason = typeof scale === "number" ? "scaling mismatch" : "should remain base when scale missing";
+  assert.strictEqual(actual, expected, `${modifier} ${propertyName} ${reason}`);
+}
 
 function runAttackPath(behavior) {
   const runtimeState = { accumulator: 0, simTime: 0, totalSteps: 0, droppedFrames: 0 };
@@ -77,17 +86,18 @@ for (const path of attackPathEvidence) {
 }
 
 for (const [modifier, scales] of Object.entries(ELITE_MODIFIERS)) {
+  assert.ok(Object.keys(scales).length > 0, `${modifier} must define at least one scaling property`);
   const elite = createEnemyBehaviorState({
     id: `elite-${modifier}`,
     behavior: "chase",
-    speed: 100,
-    health: 10,
+    speed: ELITE_BASE_SPEED,
+    health: ELITE_BASE_HEALTH,
     modifier,
   });
-  if (scales.speedScale) assert.strictEqual(elite.speed, 100 * scales.speedScale, `${modifier} speed scaling mismatch`);
-  if (scales.healthScale) assert.strictEqual(elite.health, 10 * scales.healthScale, `${modifier} health scaling mismatch`);
-  if (scales.cooldownScale) assert.strictEqual(elite.cooldownScale, scales.cooldownScale, `${modifier} cooldown scaling mismatch`);
-  if (scales.damageScale) assert.strictEqual(elite.damageScale, scales.damageScale, `${modifier} damage scaling mismatch`);
+  assertScaling(elite.speed, ELITE_BASE_SPEED, scales.speedScale, "speed", modifier);
+  assertScaling(elite.health, ELITE_BASE_HEALTH, scales.healthScale, "health", modifier);
+  assert.strictEqual(elite.cooldownScale, scales.cooldownScale || 1, `${modifier} cooldown scaling mismatch`);
+  assert.strictEqual(elite.damageScale, scales.damageScale || 1, `${modifier} damage scaling mismatch`);
   console.log("phase2_elite_variant", modifier, JSON.stringify({ speed: elite.speed, health: elite.health }));
 }
 
