@@ -479,7 +479,7 @@
     }
     function drawPlaying() {
       const presentation = globalThis.VesselPresentation;
-      const usePresentation = !!(G.phase25Visuals.enabled && presentation);
+      const usePresentation = G.phase25Visuals.enabled && presentation;
       const nowMs = performance.now();
       drawRoom();
       for (const p of G.room.pickups) {
