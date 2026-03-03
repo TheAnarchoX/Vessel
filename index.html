@@ -31,6 +31,7 @@
   <script src="src/core/fixedStep.js"></script>
   <script src="src/gameplay/feelMetrics.js"></script>
   <script src="src/gameplay/enemyContracts.js"></script>
+  <script src="src/presentation/entityVisuals.js"></script>
   <script src="src/engine/runtime.js"></script>
   <script>
     const canvas = document.getElementById("game");
@@ -54,7 +55,7 @@
       if (!keys.has(e.code)) pressed.add(e.code);
       keys.add(e.code);
       queueShotIntent(e.code, performance.now());
-      if (["Tab","F3","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
+      if (["Tab","F3","F4","F5","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
       initAudio();
     });
     addEventListener("keyup", (e) => keys.delete(e.code));
@@ -96,7 +97,7 @@
       state: "title", floor: 0, dungeon: null, room: null, player: null, shots: [], enemyShots: [],
       msg: "", msgT: 0, mapOpen: false, flash: 0, shake: 0, endingTitle: "", endingLine: "",
       hitStop: 0, shotIntent: null, feelMetrics: VesselGameplay.createFeelMetrics(), feelFailures: [],
-      phase2Preview: null
+      phase2Preview: null, phase25Visuals: { enabled: true, checklist: false }
     };
 
     function behaviorColor(behavior) {
@@ -307,6 +308,8 @@
       const p = G.player;
       if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
       if (pressed.has("F3")) { ensurePhase2Preview(); if (G.phase2Preview) G.phase2Preview.enabled = !G.phase2Preview.enabled; }
+      if (pressed.has("F4")) G.phase25Visuals.enabled = !G.phase25Visuals.enabled;
+      if (pressed.has("F5")) G.phase25Visuals.checklist = !G.phase25Visuals.checklist;
       // Hit-stop deliberately freezes gameplay updates for a short readability pulse.
       // This includes player timers (invulnerability/fire cooldown) for a true micro-freeze.
       if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); return; }
@@ -465,6 +468,8 @@
       ctx.fillText("ITEMS: "+(p.items.slice(-4).join(" | ")||"NONE"),16,H-10);
       ctx.fillStyle = G.phase2Preview?.enabled ? "#d4be6c" : "#7e6a76";
       ctx.fillText(`F3 PHASE2 PREVIEW ${G.phase2Preview?.enabled ? "ON" : "OFF"}`,W/2-98,26);
+      ctx.fillStyle = G.phase25Visuals.enabled ? "#8acb8a" : "#a98989";
+      ctx.fillText(`F4 VISUAL BASELINE ${G.phase25Visuals.enabled ? "ON" : "LEGACY"} / F5 CHECKLIST ${G.phase25Visuals.checklist ? "ON" : "OFF"}`,W/2-202,H-10);
       const feelSummary = VesselGameplay.summarizeFeel(G.feelMetrics);
       ctx.fillStyle = G.feelFailures.length ? "#d87070" : "#8acb8a";
       ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
@@ -473,20 +478,35 @@
       if (G.msgT>0) { ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,50); }
     }
     function drawPlaying() {
+      const presentation = globalThis.VesselPresentation;
+      const usePresentation = !!(G.phase25Visuals.enabled && presentation);
+      const nowMs = performance.now();
       drawRoom();
       for (const p of G.room.pickups) {
         if (p.hidden) continue;
-        ctx.fillStyle="#2d1f12"; ctx.fillRect(p.x-14,p.y+8,28,8);
-        ctx.fillStyle="#f2e4bf"; ctx.fillRect(p.x-10,p.y-18,20,28);
+        if (usePresentation) presentation.renderPickup(ctx, p, nowMs);
+        else {
+          ctx.fillStyle="#2d1f12"; ctx.fillRect(p.x-14,p.y+8,28,8);
+          ctx.fillStyle="#f2e4bf"; ctx.fillRect(p.x-10,p.y-18,20,28);
+        }
         if (p.item) { ctx.fillStyle="#e8c95e"; ctx.fillText(p.item.name,p.x-60,p.y-24); }
       }
-      for (const s of G.shots) { ctx.fillStyle=s.color; ctx.fillRect(s.x-4,s.y-4,8,8); }
-      for (const s of G.enemyShots) { ctx.fillStyle=s.color||"#a33"; ctx.fillRect(s.x-4,s.y-4,8,8); }
+      for (const s of G.shots) {
+        if (usePresentation) presentation.renderProjectile(ctx, s);
+        else { ctx.fillStyle=s.color; ctx.fillRect(s.x-4,s.y-4,8,8); }
+      }
+      for (const s of G.enemyShots) {
+        if (usePresentation) presentation.renderProjectile(ctx, s);
+        else { ctx.fillStyle=s.color||"#a33"; ctx.fillRect(s.x-4,s.y-4,8,8); }
+      }
       for (const e of G.room.enemies) if (e.hp>0) {
-        ctx.fillStyle=e.color;
-        if (["wisp","seraph"].includes(e.type)) { ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
-        else if (e.type==="tendril") ctx.fillRect(e.x-8,e.y-20,16,40);
-        else ctx.fillRect(e.x-e.r*0.6,e.y-e.r*0.7,e.r*1.2,e.r*1.4);
+        if (usePresentation) presentation.renderEnemy(ctx, e, nowMs);
+        else {
+          ctx.fillStyle=e.color;
+          if (["wisp","seraph"].includes(e.type)) { ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
+          else if (e.type==="tendril") ctx.fillRect(e.x-8,e.y-20,16,40);
+          else ctx.fillRect(e.x-e.r*0.6,e.y-e.r*0.7,e.r*1.2,e.r*1.4);
+        }
         if (e.type==="shepherd"||e.type==="pit") {
           ctx.fillStyle="#2a0010"; ctx.fillRect(W/2-140,ROOM_Y+10,280,10);
           ctx.fillStyle="#bf4b54"; ctx.fillRect(W/2-140,ROOM_Y+10,280*Math.max(0,e.hp/e.maxHp),10);
@@ -504,11 +524,29 @@
         ctx.fillStyle = "#dfd2be"; ctx.fillText("PHASE2 CONTRACT PREVIEW", ROOM_X + 24, ROOM_Y + 34);
         debugLines.slice(0, 7).forEach((line, idx) => ctx.fillText(line, ROOM_X + 24, ROOM_Y + 54 + idx * 16));
       }
+      if (G.phase25Visuals.checklist && presentation) {
+        const checklist = presentation.ANIMATION_CHECKLIST;
+        const summary = presentation.summarizeReadability(G.room.enemies.filter(e => e.hp > 0));
+        const rows = [
+          `PLAYER ${checklist.player.join(", ")}`,
+          `ENEMY ${checklist.enemy.join(", ")}`,
+          `ITEM ${checklist.item.join(", ")}`,
+          `BOSS ${checklist.boss.join(", ")}`,
+          `STRESS silhouettes=${summary.distinctSilhouettes} types=${summary.distinctTypes} live=${summary.total}`,
+        ];
+        ctx.fillStyle = "rgba(9,3,12,0.88)"; ctx.fillRect(ROOM_X + ROOM_PX_W - 390, ROOM_Y + 14, 376, 132);
+        ctx.strokeStyle = "#6d4a58"; ctx.strokeRect(ROOM_X + ROOM_PX_W - 390, ROOM_Y + 14, 376, 132);
+        ctx.fillStyle = "#dfd2be"; ctx.fillText("PHASE2.5 READABILITY CHECKLIST", ROOM_X + ROOM_PX_W - 380, ROOM_Y + 34);
+        rows.forEach((line, idx) => ctx.fillText(line, ROOM_X + ROOM_PX_W - 380, ROOM_Y + 54 + idx * 16));
+      }
       const p=G.player;
       if (!(p.inv>0&&((performance.now()/50)|0)%2===0)) {
-        ctx.fillStyle=p.corruption>50?"#d0b090":"#ead9c2"; ctx.fillRect(p.x-8,p.y-12,16,24);
-        ctx.fillStyle="#111"; ctx.fillRect(p.x-6,p.y-9,4,4); ctx.fillRect(p.x+2,p.y-9,4,4);
-        if (p.corruption>50) { ctx.strokeStyle="rgba(10,0,12,0.65)"; ctx.beginPath(); ctx.arc(p.x,p.y,15+Math.sin(performance.now()*0.01),0,Math.PI*2); ctx.stroke(); }
+        if (usePresentation) presentation.renderPlayer(ctx, p, nowMs);
+        else {
+          ctx.fillStyle=p.corruption>50?"#d0b090":"#ead9c2"; ctx.fillRect(p.x-8,p.y-12,16,24);
+          ctx.fillStyle="#111"; ctx.fillRect(p.x-6,p.y-9,4,4); ctx.fillRect(p.x+2,p.y-9,4,4);
+          if (p.corruption>50) { ctx.strokeStyle="rgba(10,0,12,0.65)"; ctx.beginPath(); ctx.arc(p.x,p.y,15+Math.sin(performance.now()*0.01),0,Math.PI*2); ctx.stroke(); }
+        }
       }
       drawHUD();
       if (G.mapOpen) {
