@@ -74,6 +74,14 @@ Make minute-1 gameplay feel excellent while establishing the engine foundation e
 
 ---
 
+## Post-Phase 1 Baseline (Applies to Phases 2+)
+
+- Phase 0 policy/acceptance gates and Phase 1 feel/runtime foundation are complete and should be treated as fixed inputs for later phases.
+- Build new gameplay/system work in `src/` modules first (core/engine/gameplay separation); keep `index.html` as integration shell/prototype host, not the long-term source-of-truth architecture.
+- Keep deterministic validation + PR evidence requirements active in every later phase.
+
+---
+
 ## Phase 2 — Enemy and Encounter Design
 
 ### Goal
@@ -91,7 +99,7 @@ Create high-identity enemies and balanced encounter compositions.
 - Difficulty rises through composition, not randomness alone.
 
 ### Agent Prompt (Phase 2)
-"For Phase 2 (Enemy and Encounter Design): act as Gameplay + QA agents to implement enemy behavior contracts (chase/charge/kite/summon/zone) with explicit telegraph windows and readable damage attribution. Align behavior with `SPEC.md` `Combat Philosophy` and room intent from `Core Gameplay Structure`, using `index.html` as current implementation and `src/` as future modular target. Validate encounter mixes under stress with overlays/logs, and use `rg`/`view` to confirm telegraph/read/recover coverage for each attack path."
+"For Phase 2 (Enemy and Encounter Design): act as Gameplay + QA agents and implement enemy behavior contracts (chase/charge/kite/summon/zone) in `src/` on top of the Phase 1 runtime seam. Treat telegraph/read/recover windows and damage attribution as explicit, testable contracts aligned to `SPEC.md` `Combat Philosophy` and room intent from `Core Gameplay Structure`. Validate encounter composition under stress with debug overlays/logs and capture reproducible evidence for each attack path."
 
 ---
 
@@ -112,7 +120,7 @@ Deliver memorable bosses with clear escalation and replayable skill tests.
 - Boss outcomes correlate with mastery, not ambiguity.
 
 ### Agent Prompt (Phase 3)
-"For Phase 3 (Bosses and Phase-State Combat): act as Gameplay + Engine agents and model bosses as deterministic phase state machines with explicit transition guards (health, timers, triggers). Use `SPEC.md` `Combat Philosophy` (phase escalation) and `Engineering Philosophy` (deterministic simulation) as design constraints, and record architecture shifts in `docs/decisions/`. Validate transition paths, telegraph timing, and hazard readability with replay-friendly regression evidence."
+"For Phase 3 (Bosses and Phase-State Combat): act as Gameplay + Engine agents and model bosses in `src/` as deterministic phase state machines with explicit transition guards (health, timers, triggers). Use `SPEC.md` `Combat Philosophy` (phase escalation) and `Engineering Philosophy` (deterministic simulation) as hard constraints, preserve Phase 1 loop determinism, and record architecture-impacting decisions in `docs/decisions/`. Validate all transition paths, telegraph timing, and hazard readability with replay-friendly evidence."
 
 ---
 
@@ -133,7 +141,7 @@ Enable wide build expression without dead or broken outcomes.
 - Item outcomes are exciting but controllable for balance.
 
 ### Agent Prompt (Phase 4)
-"For Phase 4 (Itemization, Synergy, and Build Diversity): act as Gameplay + QA agents and define a concrete item taxonomy plus pair/triple synergy matrix that can be tested deterministically. Ground stat/effect assumptions in `SPEC.md` `Player Systems`, keep implementation references in `index.html`/`src/`, and document balancing assumptions in `MEMORY.md` when policy-impacting. Use simulations and targeted checks to remove no-op rewards and dead-build outcomes before content expansion."
+"For Phase 4 (Itemization, Synergy, and Build Diversity): act as Gameplay + QA agents and define a concrete item taxonomy plus pair/triple synergy matrix implemented/tested from `src/` systems. Ground stat/effect assumptions in `SPEC.md` `Player Systems`, keep deterministic hooks compatible with the Phase 1 runtime seam, and document policy-impacting balancing assumptions in `MEMORY.md`. Use simulations and targeted checks to remove no-op rewards and dead-build outcomes before content expansion."
 
 ---
 
@@ -154,7 +162,7 @@ Tie systems and story to spiritual erosion, not generic power fantasy.
 - Endings reflect player tradeoffs.
 
 ### Agent Prompt (Phase 5)
-"For Phase 5 (Corruption, Narrative, and Progression Identity): act as Gameplay + Narrative + Audio/UX collaborators to bind corruption to mechanics, AV treatment, and branching outcomes. In `SPEC.md`, explicitly align with `Thematic Rules`, `Audio Direction`, and `UI/HUD Philosophy`; keep high-level intent synchronized with `README.md` and `MEMORY.md`. Validate corruption trigger logic and ending conditions using deterministic scenario checks and captured evidence."
+"For Phase 5 (Corruption, Narrative, and Progression Identity): act as Gameplay + Narrative + Audio/UX collaborators and bind corruption to mechanics, AV treatment, and branching outcomes through `src/` gameplay/presentation boundaries. In `SPEC.md`, explicitly align with `Thematic Rules`, `Audio Direction`, and `UI/HUD Philosophy`; keep high-level intent synchronized with `README.md` and `MEMORY.md` without regressing Phase 0 policy constraints. Validate corruption triggers and ending conditions using deterministic scenario checks and captured evidence."
 
 ---
 
@@ -175,7 +183,7 @@ Make procedural floors reliable, varied, and intentionally paced.
 - Floor pacing naturally alternates pressure and recovery.
 
 ### Agent Prompt (Phase 6)
-"For Phase 6 (Dungeon Generation and Room Pacing): act as Engine + QA agents and implement generator constraints/validators before pacing polish. Use `SPEC.md` `Dungeon Generation Philosophy` plus room rules from `Core Gameplay Structure` as hard requirements, place validation utilities in `src/` (and `scripts/bench/` for seeded runs where applicable), and enforce reachability/economy guarantees. Reject failing seeds and include reproducible seed evidence in PR artifacts."
+"For Phase 6 (Dungeon Generation and Room Pacing): act as Engine + QA agents and implement generator constraints/validators in `src/` before pacing polish. Use `SPEC.md` `Dungeon Generation Philosophy` plus room rules from `Core Gameplay Structure` as hard requirements, keep seeded validation utilities in `scripts/bench/` where applicable, and enforce reachability/economy guarantees. Reject failing seeds and include reproducible seed evidence in PR artifacts."
 
 ---
 
@@ -204,7 +212,7 @@ Mature and enforce the early engine foundation into production-ready architectur
 - Tooling catches structural/content regressions early.
 
 ### Agent Prompt (Phase 7)
-"For Phase 7 (Engine Architecture and Toolchain Maturation): act as Engine + Planner agents and mature the Phase 1 engine base into strict module boundaries (core/gameplay/content/rendering/audio/UI) with deterministic simulation contracts and full toolchain enforcement. Follow `SPEC.md` `Engine/System Architecture Goals` and `Engineering Philosophy`, capture decisions in `docs/decisions/*.md` (Mermaid where useful), and wire validation tooling/CI gates for lint/type/content/schema/replay checks. Prioritize debuggability and boundary enforcement over short-term velocity."
+"For Phase 7 (Engine Architecture and Toolchain Maturation): act as Engine + Planner agents and mature the established Phase 1+ `src/` foundation into strict module boundaries (core/gameplay/content/rendering/audio/UI) with deterministic simulation contracts and full toolchain enforcement. Follow `SPEC.md` `Engine/System Architecture Goals` and `Engineering Philosophy`, capture decisions in `docs/decisions/*.md` (Mermaid where useful), and wire validation tooling/CI gates for lint/type/content/schema/replay checks. Prioritize debuggability and boundary enforcement over short-term velocity."
 
 ---
 
@@ -240,7 +248,7 @@ Sustain stable frame pacing while increasing encounter and VFX complexity.
 - Profiling tools explain bottlenecks.
 
 ### Agent Prompt (Phase 8)
-"For Phase 8 (Performance, Rendering, and Instrumentation): act as Performance + Engine agents and profile before optimization using benchmark/stress workflows (`scripts/bench/` where applicable). Use `SPEC.md` `Performance Goals` to define pass/fail thresholds, then target hot-loop allocations, collision/render bottlenecks, and frame pacing spikes without harming readability. Record benchmark commands/output in PR evidence and reject speculative changes without measured gains."
+"For Phase 8 (Performance, Rendering, and Instrumentation): act as Performance + Engine agents and profile `src/` runtime hotspots before optimization using benchmark/stress workflows (`scripts/bench/` where applicable). Use `SPEC.md` `Performance Goals` to define pass/fail thresholds, then target hot-loop allocations, collision/render bottlenecks, and frame pacing spikes without harming readability or determinism guarantees established earlier. Record benchmark commands/output in PR evidence and reject speculative changes without measured gains."
 
 ---
 
@@ -275,7 +283,7 @@ Improve readability, comfort, and emotional impact without diluting horror tone.
 - Accessibility options reduce friction while preserving intent.
 
 ### Agent Prompt (Phase 9)
-"For Phase 9 (UX, Accessibility, and Audio Cohesion): act as UX + Accessibility + Audio agents and improve HUD clarity, control comfort, and alert hierarchy without diluting tone. In `SPEC.md`, use `UI/HUD Philosophy`, `Audio Direction`, and `Thematic Rules` as review anchors while implementing options such as rebinds and intensity/flash/shake controls. Capture before/after UI evidence and verify critical cue readability under high action density."
+"For Phase 9 (UX, Accessibility, and Audio Cohesion): act as UX + Accessibility + Audio agents and improve HUD clarity, control comfort, and alert hierarchy through modular `src/` UI/audio systems without diluting tone. In `SPEC.md`, use `UI/HUD Philosophy`, `Audio Direction`, and `Thematic Rules` as review anchors while implementing options such as rebinds and intensity/flash/shake controls. Capture before/after UI evidence and verify critical cue readability under high action density."
 
 ---
 
@@ -317,7 +325,7 @@ Make the game robust, tunable, and scalable for content growth.
 - Balance iteration is data-informed.
 
 ### Agent Prompt (Phase 10)
-"For Phase 10 (QA, Balancing, and Content Production Readiness): act as QA/Balance + Engine agents and operationalize repeatable test/simulation loops for combat math, generation integrity, item stacking, determinism, and save compatibility. Anchor checks to `SPEC.md` sections `Combat Philosophy`, `Dungeon Generation Philosophy`, and `Engineering Philosophy`; place automation in `tests/` with supporting scripts in `scripts/bench/`. Require telemetry-backed evidence for any balance/stability change before sign-off."
+"For Phase 10 (QA, Balancing, and Content Production Readiness): act as QA/Balance + Engine agents and operationalize repeatable test/simulation loops for combat math, generation integrity, item stacking, determinism, and save compatibility across `src/` systems. Anchor checks to `SPEC.md` sections `Combat Philosophy`, `Dungeon Generation Philosophy`, and `Engineering Philosophy`; place automation in `tests/` with supporting scripts in `scripts/bench/`. Require telemetry-backed evidence for any balance/stability change before sign-off."
 
 ---
 
@@ -351,7 +359,7 @@ Ship in controlled stages with legal confidence and operational readiness.
 - Deployment can proceed without licensing or quality blockers.
 
 ### Agent Prompt (Phase 11)
-"For Phase 11 (Release Management and Compliance): act as Planner + Compliance + QA agents and prepare alpha/beta/1.0 candidates with explicit quality gates, rollback criteria, and evidence bundles. Validate release readiness against `README.md` direction plus `SPEC.md` `Licensing & Deployment Policy (Free-Use Requirement)` and `Technical Direction (Revised)`, and ensure `MEMORY.md`/notices reflect final compliance decisions. Require QA outputs, telemetry-backed balance validation, and deployment-readiness checks before approval."
+"For Phase 11 (Release Management and Compliance): act as Planner + Compliance + QA agents and prepare alpha/beta/1.0 candidates with explicit quality gates, rollback criteria, and evidence bundles for the modularized `src/`-first architecture. Validate release readiness against `README.md` direction plus `SPEC.md` `Licensing & Deployment Policy (Free-Use Requirement)` and `Technical Direction (Revised)`, and ensure `MEMORY.md`/notices reflect final compliance decisions. Require QA outputs, telemetry-backed balance validation, and deployment-readiness checks before approval."
 
 ---
 
@@ -360,5 +368,7 @@ Ship in controlled stages with legal confidence and operational readiness.
 - [x] Initial playable prototype exists.
 - [x] Baseline dungeon/combat/item/corruption loop implemented.
 - [x] Initial design/spec/memory documentation present.
-- [ ] Architecture modernization (modularization/tooling) pending.
+- [x] Phase 0 governance/policy constraints and acceptance gates completed.
+- [x] Phase 1 core feel hardening and initial `src/` runtime foundation completed.
+- [ ] Architecture/toolchain maturation beyond initial foundation (Phase 7 scope) pending.
 - [ ] Quality, performance, and production pipelines pending.
