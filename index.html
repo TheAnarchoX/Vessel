@@ -35,7 +35,13 @@
   <script src="src/gameplay/bossStateMachine.js"></script>
   <script src="src/gameplay/bossReplay.js"></script>
   <script src="src/gameplay/itemSystem.js"></script>
+  <script src="src/gameplay/dungeonGenerator.js"></script>
+  <script src="src/content/schemas.js"></script>
+  <script src="src/rendering/entityVisuals.js"></script>
+  <script src="src/ui/corruptionHud.js"></script>
+  <script src="src/audio/corruptionAudio.js"></script>
   <script src="src/presentation/entityVisuals.js"></script>
+  <script src="src/presentation/corruptionEffects.js"></script>
   <script src="src/engine/runtime.js"></script>
   <script>
     const canvas = document.getElementById("game");
@@ -65,7 +71,7 @@
       if (!keys.has(e.code)) pressed.add(e.code);
       keys.add(e.code);
       queueShotIntent(e.code, performance.now());
-      if (["Tab","F2","F3","F4","F5","F6","F7","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
+      if (["Tab","F2","F3","F4","F5","F6","F7","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE","KeyR"].includes(e.code)) e.preventDefault();
       initAudio();
     });
     addEventListener("keyup", (e) => keys.delete(e.code));
@@ -216,49 +222,7 @@
       G.shotIntent = isIntentHeld(intent) ? { sx: intent.sx, sy: intent.sy, at: nowMs } : null;
     }
 
-    function createDungeon(floor) {
-      const grid = Array.from({length: 5}, () => Array(5).fill(null));
-      const rooms = [];
-      const start = {x:2,y:2};
-      const edges = [];
-      for (let i=0;i<5;i++) edges.push({x:i,y:0},{x:i,y:4},{x:0,y:i},{x:4,y:i});
-      const boss = randomOf(edges.filter(e => Math.abs(e.x-2)+Math.abs(e.y-2) >= 3));
-      const setRoom = (x,y,type) => {
-        if (!grid[y][x]) {
-          const r = { x,y,type,spawned:false,cleared:type!=="combat"&&type!=="boss",visited:false,doors:{u:false,d:false,l:false,r:false},enemies:[],pickups:[],choiceDone:false };
-          grid[y][x] = r; rooms.push(r);
-        }
-        return grid[y][x];
-      };
-      setRoom(start.x,start.y,"start");
-      setRoom(boss.x,boss.y,"boss");
-      let cx=2, cy=2;
-      while (cx!==boss.x || cy!==boss.y) {
-        if (Math.random()<0.5 && cx!==boss.x) cx += Math.sign(boss.x-cx);
-        else if (cy!==boss.y) cy += Math.sign(boss.y-cy);
-        if (!(cx===boss.x&&cy===boss.y)) setRoom(cx,cy,"combat");
-      }
-      const adj = [[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:2+dx,y:2+dy})).filter(p=>p.x>=0&&p.x<5&&p.y>=0&&p.y<5);
-      const altar = randomOf(adj.filter(p=>!(p.x===boss.x&&p.y===boss.y)));
-      setRoom(altar.x,altar.y,"altar");
-      const target = floor===0 ? 5 : floor===1 ? 6 : floor===2 ? 7 : 2;
-      while (rooms.length < target) {
-        const base = randomOf(rooms), [dx,dy] = randomOf([[1,0],[-1,0],[0,1],[0,-1]]);
-        const nx = base.x+dx, ny = base.y+dy;
-        if (nx>=0&&nx<5&&ny>=0&&ny<5&&!grid[ny][nx]) setRoom(nx,ny,"combat");
-      }
-      const combats = rooms.filter(r => r.type==="combat");
-      if (combats.length && floor>0) randomOf(combats).type = "confession";
-      const rest = rooms.filter(r => r.type==="combat");
-      if (rest.length) randomOf(rest).type = "reliquary";
-      for (const r of rooms) {
-        if (grid[r.y-1]?.[r.x]) r.doors.u = true;
-        if (grid[r.y+1]?.[r.x]) r.doors.d = true;
-        if (grid[r.y]?.[r.x-1]) r.doors.l = true;
-        if (grid[r.y]?.[r.x+1]) r.doors.r = true;
-      }
-      return {grid, rooms, start};
-    }
+    // createDungeon removed — replaced by VesselGameplay.generateValidDungeon (src/gameplay/dungeonGenerator.js)
 
     let _enemyUid = 0;
     function spawnEnemy(type, x, y) {
@@ -374,6 +338,7 @@
       G.floor = 0; G.player = makePlayer();
       G.descentPortal = null; G.bossDropPending = false; G.nearbyItem = null;
       const runSeed = (Date.now() & 0x7FFFFFFF) || 1;
+      G.runSeed = runSeed;
       resetItemRng(runSeed);
       VesselGameplay.startRunTracking(_runHistory, runSeed);
       G.phase25Visuals.observed = createObservedStateTracker();
@@ -383,7 +348,9 @@
       G.state = "playing";
     }
     function loadFloor(first=false){
-      G.dungeon = createDungeon(G.floor);
+      const floorSeed = ((G.runSeed || 1) + G.floor * 7919) >>> 0;
+      const genResult = VesselGameplay.generateValidDungeon(G.floor, floorSeed);
+      G.dungeon = genResult.dungeon;
       G.room = G.dungeon.grid[G.dungeon.start.y][G.dungeon.start.x];
       G.player.x = W/2; G.player.y = H/2;
       G.descentPortal = null; G.bossDropPending = false; G.nearbyItem = null;
@@ -608,8 +575,9 @@
             const dropId = G.floor===0 ? "shepherds_brand" : G.floor===1 ? "saints_marrow" : "testament";
             const def = VesselGameplay.getItemDef(dropId);
             G.room.pickups = [{ x: W/2, y: H/2, itemId: dropId, item: def, spawnT: 0.5, bossDrop: true }];
-            G.bossDropPending = true;
-            setMsg("SOMETHING REMAINS", 2.5);
+            G.bossDropPending = false;
+            G.descentPortal = { x: W/2, y: H/2 + 70, spawnT: 0.6 };
+            setMsg("A PASSAGE OPENS BELOW", 3);
           }
         }
       }
@@ -630,8 +598,6 @@
           }
           if (pck.bossDrop) {
             G.bossDropPending = false;
-            G.descentPortal = { x: W/2, y: H/2 + 70, spawnT: 0.6 };
-            setMsg("A PASSAGE OPENS BELOW", 3);
           }
           break;
         }
@@ -642,7 +608,7 @@
           if (rp.hidden && !rp.taken && p.x > ROOM_X + ROOM_PX_W - TILE * 2.5 && Math.abs(p.y - rp.y) < 64) rp.hidden = false;
         }
       }
-      // Descent portal (after boss drop pickup)
+      // Descent portal (shown immediately after boss kill)
       if (G.descentPortal) {
         G.descentPortal.spawnT = Math.max(0, G.descentPortal.spawnT - dt);
         if (G.descentPortal.spawnT <= 0 && Math.hypot(p.x - G.descentPortal.x, p.y - G.descentPortal.y) < 36) {
@@ -669,8 +635,8 @@
 
     function update(dt){
       if (G.state==="title") { if (pressed.has("Enter")) startRun(); }
-      else if (G.state==="playing") updatePlaying(dt);
-      else if ((G.state==="dead"||G.state==="ending") && pressed.has("Enter")) G.state="title";
+      else if (G.state==="playing") { if (pressed.has("KeyR")) startRun(); else updatePlaying(dt); }
+      else if (G.state==="dead"||G.state==="ending") { if (pressed.has("Enter")) G.state="title"; else if (pressed.has("KeyR")) startRun(); }
       G.msgT = Math.max(0, G.msgT-dt); G.flash = Math.max(0,G.flash-dt*2.5); G.shake = Math.max(0,G.shake-dt*8); pressed.clear();
     }
 
@@ -715,22 +681,27 @@
       const p = G.player;
       ctx.fillStyle="#12000f"; ctx.fillRect(0,0,W,ROOM_Y); ctx.fillRect(0,ROOM_Y+ROOM_PX_H,W,H-ROOM_Y-ROOM_PX_H);
       ctx.fillRect(0,0,ROOM_X,H); ctx.fillRect(ROOM_X+ROOM_PX_W,0,W-ROOM_X-ROOM_PX_W,H);
-      ctx.fillStyle="#e6d8cc"; ctx.font="16px monospace";
-      ctx.fillText("SOUL:",16,26);
+      // --- SOUL meter (top-left, row 1) ---
+      ctx.fillStyle="#e6d8cc"; ctx.font="13px monospace";
+      ctx.fillText("SOUL:",16,20);
       const pulse = 1 + Math.sin(performance.now()*0.008)*0.08;
       for (let i=0;i<Math.ceil(p.maxSoul);i++) {
         const full=i+1<=p.soul, half=!full&&i<p.soul;
-        const z=(full||half)&&p.soul<=2?10*pulse:10;
-        ctx.fillStyle="#3a1f24"; ctx.fillRect(72+i*15,18,10,10);
-        if (full) { ctx.fillStyle="#d54a58"; ctx.fillRect(72+i*15,18,z,z); }
-        else if (half) { ctx.fillStyle="#d54a58"; ctx.fillRect(72+i*15,18,z/2,z); }
+        const z=(full||half)&&p.soul<=2?9*pulse:9;
+        ctx.fillStyle="#3a1f24"; ctx.fillRect(66+i*13,12,9,9);
+        if (full) { ctx.fillStyle="#d54a58"; ctx.fillRect(66+i*13,12,z,z); }
+        else if (half) { ctx.fillStyle="#d54a58"; ctx.fillRect(66+i*13,12,z/2,z); }
       }
-      ctx.fillStyle="#c9b65d"; ctx.fillText("VESSEL",W/2-30,18);
-      ctx.fillStyle="#e6d8cc"; ctx.fillText(`CORRUPTION: ${Math.round(p.corruption)}%`,W-248,18);
-      ctx.fillStyle="#281118"; ctx.fillRect(W-248,26,180,12);
-      ctx.fillStyle=p.corruption<50?"#b5a54a":p.corruption<75?"#9f3535":"#290b18"; ctx.fillRect(W-248,26,180*Math.min(1,p.corruption/100),12);
-      ctx.fillStyle="#d8d0c2"; ctx.fillText(`ACTIVE: NONE`,16,H-28); ctx.fillText(`FLOOR: ${FLOOR_NAMES[G.floor]}`,W-225,H-28);
-      ctx.fillText("ITEMS: "+(p.items.slice(-4).join(" | ")||"NONE"),16,H-10);
+      // --- CORRUPTION meter (top-left, row 2, below SOUL) ---
+      ctx.fillStyle="#e6d8cc"; ctx.font="13px monospace";
+      ctx.fillText(`CORRUPTION: ${Math.round(p.corruption)}%`,16,36);
+      ctx.fillStyle="#281118"; ctx.fillRect(16,40,180,6);
+      ctx.fillStyle=p.corruption<50?"#b5a54a":p.corruption<75?"#9f3535":"#290b18"; ctx.fillRect(16,40,180*Math.min(1,p.corruption/100),6);
+      // --- Title (center) ---
+      ctx.fillStyle="#c9b65d"; ctx.font="16px monospace"; ctx.fillText("VESSEL",W/2-30,18);
+      // --- Bottom bar ---
+      ctx.fillStyle="#d8d0c2"; ctx.font="16px monospace";
+      ctx.fillText(`FLOOR: ${FLOOR_NAMES[G.floor]}`,W-225,H-28);
       if (G.showDebugHUD) {
         ctx.font="11px monospace";
         ctx.fillStyle = G.phase2Preview?.enabled ? "#d4be6c" : "#7e6a76";
@@ -746,10 +717,80 @@
         ctx.fillStyle = G.feelFailures.length ? "#d87070" : "#8acb8a";
         ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
       }
-      const mx=W-145,my=H-49;
-      const miniRoomColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050" };
+      // --- Minimap (top-right with semi-transparent background) ---
+      const miniRoomColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", start:"#6d4a58" };
       const miniRoomLabels = { boss:"B", altar:"A", confession:"?", reliquary:"R", start:"S" };
-      for (const r of G.dungeon.rooms) { const x=mx+(r.x-2)*14,y=my+(r.y-2)*14; const vis=r.visited||p.mapReveal; ctx.fillStyle=r===G.room?"#f0d477":(vis?(miniRoomColors[r.type]||"#8b6d7c"):"#291723"); ctx.fillRect(x,y,10,10); if (vis && miniRoomLabels[r.type]) { ctx.fillStyle=r===G.room?"#1a0a08":"#d8d0c2"; ctx.font="7px monospace"; ctx.fillText(miniRoomLabels[r.type],x+2,y+8); } }
+      // Build fog-of-war: only show rooms that are visited or adjacent to a visited room via doors
+      const knownRooms = new Set();
+      for (const r of G.dungeon.rooms) {
+        if (r.visited || p.mapReveal) {
+          knownRooms.add(r);
+          // Reveal adjacent rooms through doors (discovered but not visited)
+          if (r.doors.u) { const nr = G.dungeon.grid[r.y-1]?.[r.x]; if (nr) knownRooms.add(nr); }
+          if (r.doors.d) { const nr = G.dungeon.grid[r.y+1]?.[r.x]; if (nr) knownRooms.add(nr); }
+          if (r.doors.l) { const nr = G.dungeon.grid[r.y]?.[r.x-1]; if (nr) knownRooms.add(nr); }
+          if (r.doors.r) { const nr = G.dungeon.grid[r.y]?.[r.x+1]; if (nr) knownRooms.add(nr); }
+        }
+      }
+      // Compute minimap bounds from known rooms only
+      let minRX = Infinity, minRY = Infinity, maxRX = -Infinity, maxRY = -Infinity;
+      for (const r of knownRooms) {
+        if (r.x < minRX) minRX = r.x; if (r.y < minRY) minRY = r.y;
+        if (r.x > maxRX) maxRX = r.x; if (r.y > maxRY) maxRY = r.y;
+      }
+      const miniTile = 12, miniGap = 2, miniPad = 8;
+      const miniStep = miniTile + miniGap;
+      const miniW = (maxRX - minRX + 1) * miniStep - miniGap + miniPad * 2;
+      const miniH = (maxRY - minRY + 1) * miniStep - miniGap + miniPad * 2;
+      const miniOriginX = W - miniW - 10;
+      const miniOriginY = 8;
+      // Semi-transparent background
+      ctx.fillStyle = "rgba(8,2,12,0.55)";
+      ctx.fillRect(miniOriginX, miniOriginY, miniW, miniH);
+      ctx.strokeStyle = "rgba(60,30,50,0.5)";
+      ctx.strokeRect(miniOriginX, miniOriginY, miniW, miniH);
+      // Draw only known rooms with 3-state differentiation
+      for (const r of knownRooms) {
+        const x = miniOriginX + miniPad + (r.x - minRX) * miniStep;
+        const y = miniOriginY + miniPad + (r.y - minRY) * miniStep;
+        const isCurrent = r === G.room;
+        const visited = r.visited || p.mapReveal;
+        const needsClear = r.type === "combat" || r.type === "boss";
+        const cleared = needsClear ? r.cleared : visited;
+        if (isCurrent) {
+          // Current room: bright highlight
+          ctx.fillStyle = "#f0d477";
+        } else if (cleared) {
+          // Completed: full brightness color
+          ctx.fillStyle = miniRoomColors[r.type] || "#8b6d7c";
+        } else if (visited) {
+          // Explored but not cleared: dim version
+          const baseColor = miniRoomColors[r.type];
+          if (baseColor) {
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = baseColor;
+          } else {
+            ctx.fillStyle = "#3d2a35";
+          }
+        } else {
+          // Discovered (adjacent) but not visited: dark
+          ctx.fillStyle = "#1a0e15";
+        }
+        ctx.fillRect(x, y, miniTile, miniTile);
+        ctx.globalAlpha = 1.0;
+        // Labels for visited rooms
+        if ((visited || isCurrent) && miniRoomLabels[r.type]) {
+          ctx.fillStyle = isCurrent ? "#1a0a08" : (cleared ? "#d8d0c2" : "#8a7a82");
+          ctx.font = "7px monospace";
+          ctx.fillText(miniRoomLabels[r.type], x + 2, y + 9);
+        }
+        // Connections (only from visited rooms)
+        if (visited || isCurrent) {
+          ctx.strokeStyle = cleared ? "#3a2030" : "#251520"; ctx.lineWidth = 1;
+          if (r.doors.r && G.dungeon.grid[r.y]?.[r.x+1] && knownRooms.has(G.dungeon.grid[r.y][r.x+1])) { ctx.beginPath(); ctx.moveTo(x+miniTile,y+miniTile/2); ctx.lineTo(x+miniStep,y+miniTile/2); ctx.stroke(); }
+          if (r.doors.d && G.dungeon.grid[r.y+1]?.[r.x] && knownRooms.has(G.dungeon.grid[r.y+1][r.x])) { ctx.beginPath(); ctx.moveTo(x+miniTile/2,y+miniTile); ctx.lineTo(x+miniTile/2,y+miniStep); ctx.stroke(); }
+        }
+      }
       if (G.msgT>0) { ctx.save(); ctx.globalAlpha=Math.min(1,G.msgT); ctx.font="bold 22px monospace"; ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,ROOM_Y+TILE+46); ctx.restore(); }
     }
     function drawPlaying() {
@@ -949,7 +990,7 @@
       if (G.nearbyItem && !G.nearbyItem.taken && !G.nearbyItem.hidden) {
         const tip = VesselGameplay.formatItemTooltip(G.nearbyItem.itemId);
         if (tip) {
-          const tx = 16, ty = 50;
+          const tx = 16, ty = ROOM_Y + 6;
           const lineH = 15;
           const catLabels = { offense: "OFFENSE", defense: "DEFENSE", utility: "UTILITY", economy: "ECONOMY", corruption_tech: "CORRUPTION" };
           const catColors = { offense: "#bf4b54", defense: "#5a9a5f", utility: "#5a7abf", economy: "#c9a030", corruption_tech: "#8b4abf" };
@@ -995,8 +1036,19 @@
         // Enhanced minimap with room-type colors and labels
         const roomTypeColors = { start:"#6d4a58", boss:"#9f3040", combat:"#6d4a58", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050" };
         const roomTypeLabels = { start:"S", boss:"B", combat:"", altar:"A", confession:"?", reliquary:"R" };
-        const mapCx = ox + 130, mapCy = oy + oh/2 - 20;
+        // Fog-of-war: only show known rooms
+        const mapKnown = new Set();
         for (const r of G.dungeon.rooms) {
+          if (r.visited || G.player.mapReveal) {
+            mapKnown.add(r);
+            if (r.doors.u) { const nr = G.dungeon.grid[r.y-1]?.[r.x]; if (nr) mapKnown.add(nr); }
+            if (r.doors.d) { const nr = G.dungeon.grid[r.y+1]?.[r.x]; if (nr) mapKnown.add(nr); }
+            if (r.doors.l) { const nr = G.dungeon.grid[r.y]?.[r.x-1]; if (nr) mapKnown.add(nr); }
+            if (r.doors.r) { const nr = G.dungeon.grid[r.y]?.[r.x+1]; if (nr) mapKnown.add(nr); }
+          }
+        }
+        const mapCx = ox + 130, mapCy = oy + oh/2 - 20;
+        for (const r of mapKnown) {
           const rx = mapCx + (r.x-2)*38, ry = mapCy + (r.y-2)*38;
           const vis = r.visited || G.player.mapReveal;
           ctx.fillStyle = r===G.room ? "#d8b85f" : vis ? (roomTypeColors[r.type] || "#6d4a58") : "#1f131b";
@@ -1006,9 +1058,11 @@
             if (lbl) { ctx.fillStyle = r===G.room ? "#1a0a08" : "#d8d0c2"; ctx.font = "10px monospace"; ctx.fillText(lbl, rx + 10, ry + 18); }
           }
           // Draw connections
-          ctx.strokeStyle = vis ? "#3a2030" : "#150a10"; ctx.lineWidth = 1;
-          if (r.doors.r && G.dungeon.grid[r.y]?.[r.x+1]) { ctx.beginPath(); ctx.moveTo(rx+28,ry+14); ctx.lineTo(rx+38,ry+14); ctx.stroke(); }
-          if (r.doors.d && G.dungeon.grid[r.y+1]?.[r.x]) { ctx.beginPath(); ctx.moveTo(rx+14,ry+28); ctx.lineTo(rx+14,ry+38); ctx.stroke(); }
+          if (vis || r === G.room) {
+            ctx.strokeStyle = "#3a2030"; ctx.lineWidth = 1;
+            if (r.doors.r && G.dungeon.grid[r.y]?.[r.x+1] && mapKnown.has(G.dungeon.grid[r.y][r.x+1])) { ctx.beginPath(); ctx.moveTo(rx+28,ry+14); ctx.lineTo(rx+38,ry+14); ctx.stroke(); }
+            if (r.doors.d && G.dungeon.grid[r.y+1]?.[r.x] && mapKnown.has(G.dungeon.grid[r.y+1][r.x])) { ctx.beginPath(); ctx.moveTo(rx+14,ry+28); ctx.lineTo(rx+14,ry+38); ctx.stroke(); }
+          }
         }
         // Inventory panel (right side)
         const invX = ox + 280, invY = oy + 10;

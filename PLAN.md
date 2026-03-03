@@ -230,15 +230,33 @@ Tie systems and story to spiritual erosion, not generic power fantasy.
 Make procedural floors reliable, varied, and intentionally paced.
 
 ### Scope
-- [ ] Expand generator with weighted templates and lock-key progression.
-- [ ] Add pacing rules (intensity valleys/peaks across floor graph).
-- [ ] Guarantee minimum economy/recovery opportunities per floor.
-- [ ] Add path entropy metrics to prevent linear monotony.
-- [ ] Add generator validator with fail-fast reroll.
+- [x] Expand generator with weighted templates and lock-key progression.
+- [x] Add pacing rules (intensity valleys/peaks across floor graph).
+- [x] Guarantee minimum economy/recovery opportunities per floor.
+- [x] Add path entropy metrics to prevent linear monotony.
+- [x] Add generator validator with fail-fast reroll.
 
 ### Exit Criteria
 - No unwinnable seeds.
 - Floor pacing naturally alternates pressure and recovery.
+
+### Progress
+Phase 6 implementation complete. Deterministic seeded dungeon generator with:
+weighted room-role assignment per floor, lock-key progression (floors 2-3),
+BFS reachability enforcement, economy guarantees (altar/rest/reliquary minimums),
+path entropy to reject linear corridors, intensity-based pacing validation
+(recovery rooms between start and boss), and fail-fast reroll (max 100 attempts).
+Old `createDungeon` in index.html replaced by modular generator.
+
+**New files:**
+- `src/gameplay/dungeonGenerator.js` — deterministic generator, validator, analysis utils
+- `scripts/bench/phase6_dungeon_gen_check.js` — comprehensive validation (105 tests)
+
+**Modified:**
+- `index.html` — wired to `VesselGameplay.generateValidDungeon`, old generator removed
+
+**Validation:** 105/105 tests pass; 0 unwinnable seeds in 4000 dungeons (1000 seeds × 4 floors); max reroll attempts ≤ 60; economy guarantee holds across all seeds; Phases 1-5 regression-free (246/246 item, 169/169 corruption tests pass).
+**ADR:** `docs/decisions/0004-phase6-dungeon-generation.md`
 
 ### Agent Prompt (Phase 6)
 "For Phase 6 (Dungeon Generation and Room Pacing): act as Engine + QA agents and implement generator constraints/validators in `src/` before pacing polish. Use `SPEC.md` `Dungeon Generation Philosophy` plus room rules from `Core Gameplay Structure` as hard requirements, keep seeded validation utilities in `scripts/bench/` where applicable, and enforce reachability/economy guarantees. Reject failing seeds and include reproducible seed evidence in PR artifacts."
@@ -251,23 +269,55 @@ Make procedural floors reliable, varied, and intentionally paced.
 Mature and enforce the early engine foundation into production-ready architecture/tooling.
 
 ### Scope
-- [ ] Modular structure: core, gameplay, content, rendering, audio, UI.
-- [ ] Separate data definitions from behavior logic.
-- [ ] Add schema validation for content files.
-- [ ] Enforce dependency boundaries and avoid cyclic coupling.
-- [ ] Fixed-step simulation with interpolated rendering.
-- [ ] Record/replay pipeline for deterministic repro.
-- [ ] Event bus for combat/event telemetry.
-- [ ] Formal game-state transition contracts.
-- [ ] Save/resume versioning + migrations.
-- [ ] Add linting, formatting, type checks, pre-commit hooks, CI gates.
-- [ ] Add content validation CLI, balance simulation CLI, benchmark command.
-- [ ] Add dependency/license auditing and THIRD_PARTY_NOTICES tracking.
-- [ ] Document architecture decisions as ADRs in `docs/decisions` (Mermaid diagrams where useful).
+- [x] Modular structure: core, gameplay, content, rendering, audio, UI.
+- [x] Separate data definitions from behavior logic.
+- [x] Add schema validation for content files.
+- [x] Enforce dependency boundaries and avoid cyclic coupling.
+- [x] Fixed-step simulation with interpolated rendering.
+- [x] Record/replay pipeline for deterministic repro.
+- [x] Event bus for combat/event telemetry.
+- [x] Formal game-state transition contracts.
+- [x] Save/resume versioning + migrations.
+- [x] Add linting, formatting, type checks, pre-commit hooks, CI gates.
+- [x] Add content validation CLI, balance simulation CLI, benchmark command.
+- [x] Add dependency/license auditing and THIRD_PARTY_NOTICES tracking.
+- [x] Document architecture decisions as ADRs in `docs/decisions` (Mermaid diagrams where useful).
 
 ### Exit Criteria
 - Architecture supports fast iteration without systemic fragility.
 - Tooling catches structural/content regressions early.
+
+### Progress
+Phase 7 implementation complete. Architecture now enforces explicit module boundaries
+across `core/gameplay/content/rendering/audio/ui` with a compatibility facade in
+`presentation` while integration migrates. Determinism and debuggability contracts
+were expanded with simulation guards, event bus telemetry, formal game-state
+transitions, and save migration versioning. Toolchain enforcement now includes
+lint/type/boundary/schema/replay/license gates with CI + pre-commit integration.
+
+**New files:**
+- `src/core/eventBus.js` — deterministic event telemetry bus
+- `src/core/simulationContracts.js` — fixed-step simulation contracts
+- `src/engine/gameStateMachine.js` — explicit transition contract map
+- `src/engine/saveMigrations.js` — save versioning + migration pipeline
+- `src/content/schemas.js` + `content/*.json` + `content/schemas/*.json` — content-layer contracts/data
+- `src/rendering/entityVisuals.js` — rendering layer module
+- `src/ui/corruptionHud.js` — UI layer module
+- `src/audio/corruptionAudio.js` — audio layer module
+- `scripts/validate/check_boundaries.js` — boundary enforcement CLI
+- `scripts/validate/validate_content_schema.js` — content/schema validation CLI
+- `scripts/validate/replay_contract_check.js` — deterministic replay contract CLI
+- `scripts/validate/license_audit.js` — dependency license audit + notices generation
+- `docs/decisions/0005-phase7-architecture-toolchain.md` — Phase 7 ADR
+- `.github/workflows/ci.yml`, `package.json`, `eslint.config.js`, `tsconfig.json`, `.husky/pre-commit`
+
+**Modified:**
+- `index.html` — new layer modules loaded before compatibility adapters
+- `src/presentation/entityVisuals.js` — compatibility adapter to rendering layer
+- `src/presentation/corruptionEffects.js` — compatibility adapter to UI/audio layers
+
+**Validation:** `npm run validate` (lint, type, boundaries, schema, replay, license, and Phase 3/4/6 deterministic checks).
+**ADR:** `docs/decisions/0005-phase7-architecture-toolchain.md`
 
 ### Agent Prompt (Phase 7)
 "For Phase 7 (Engine Architecture and Toolchain Maturation): act as Engine + Planner agents and mature the established Phase 1+ `src/` foundation into strict module boundaries (core/gameplay/content/rendering/audio/UI) with deterministic simulation contracts and full toolchain enforcement. Follow `SPEC.md` `Engine/System Architecture Goals` and `Engineering Philosophy`, capture decisions in `docs/decisions/*.md` (Mermaid where useful), and wire validation tooling/CI gates for lint/type/content/schema/replay checks. Prioritize debuggability and boundary enforcement over short-term velocity."
@@ -430,6 +480,7 @@ Ship in controlled stages with legal confidence and operational readiness.
 - [x] Phase 1 core feel hardening and initial `src/` runtime foundation completed.
 - [x] Phase 3 boss phase state machines, hazards, and replay completed.
 - [x] Phase 4 item taxonomy, synergy matrix, dead-build safeguards, and simulation completed.
+- [x] Phase 6 dungeon generation constraints, validators, pacing, and economy guarantees completed.
 - [ ] Phase 2.5 entity visual identity and animation baseline pending.
 - [ ] Architecture/toolchain maturation beyond initial foundation (Phase 7 scope) pending.
 - [ ] Quality, performance, and production pipelines pending.

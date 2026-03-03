@@ -1,0 +1,27 @@
+{
+  "name": "vessel-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VESSEL prototype architecture and validation toolchain",
+  "license": "UNLICENSED",
+  "scripts": {
+    "lint": "eslint src scripts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check:boundaries": "node scripts/validate/check_boundaries.js",
+    "check:content": "node scripts/validate/validate_content_schema.js",
+    "check:replay": "node scripts/validate/replay_contract_check.js",
+    "check:licenses": "node scripts/validate/license_audit.js",
+    "check:phase3": "node scripts/bench/phase3_boss_statemachine_check.js && node scripts/bench/phase3_boss_replay_check.js",
+    "check:phase4": "node scripts/bench/phase4_item_synergy_check.js",
+    "check:phase6": "node scripts/bench/phase6_dungeon_gen_check.js",
+    "validate": "npm run lint && npm run typecheck && npm run check:boundaries && npm run check:content && npm run check:replay && npm run check:licenses && npm run check:phase3 && npm run check:phase4 && npm run check:phase6",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "ajv": "^8.17.1",
+    "eslint": "^9.21.0",
+    "husky": "^9.1.7",
+    "typescript": "^5.8.2"
+  }
+}

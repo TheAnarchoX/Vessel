@@ -105,3 +105,52 @@
 - Tier transitions fire for tainted/corrupt/consumed.
 - Soul decay triggers in corrupt and consumed tiers.
 - Whispers and narratives fire in every simulated run.
+
+## Phase 6 Dungeon Generation Assumptions
+
+### Grid Layout
+
+- 5×5 grid, start fixed at center (2,2), boss at edge with manhattan distance ≥ 3.
+- Altar always adjacent to start (distance 1).
+- Guaranteed path carved from start to boss before expansion.
+
+### Floor Configurations
+
+- Floor 0 (Nave): 6–8 rooms, 2+ combat, no confession, 1+ recovery, no lock-key.
+- Floor 1 (Catacombs): 7–10 rooms, 3+ combat, confession required, 2+ recovery, no lock-key.
+- Floor 2 (Ossuary): 8–12 rooms, 4+ combat, confession required, 2+ recovery, lock-key enabled.
+- Floor 3 (Pit): 5–7 rooms, 2+ combat, confession required, 1+ recovery, lock-key enabled.
+
+### Room Types
+
+- start, boss, combat, altar, confession, reliquary, rest.
+- "rest" is a new recovery room type (economy guarantee filler) — not yet visually/mechanically implemented in prototype shell.
+- Max per dungeon: 1 confession, 2 reliquary, 2 rest.
+
+### Weighted Role Assignment
+
+- Unassigned combat rooms are probabilistically reassigned using per-floor weight tables.
+- Mandatory roles (confession, reliquary, rest for economy) are placed first; weights only apply to remaining surplus combat slots.
+
+### Lock-Key Progression
+
+- Active on floors 2 and 3.
+- Locked room placed adjacent to boss; key room placed in first half of BFS traversal from start.
+- Key must be reachable without passing through the locked room.
+
+### Validation Constraints
+
+- All rooms reachable from start (BFS, ignoring locks).
+- Economy: recovery rooms ≥ floor minimum.
+- Path entropy ≥ 0.05 for 6+ room dungeons (rejects purely linear corridors).
+- Pacing: at least one room with intensity ≤ 3 between start and boss.
+- Lock-key: key reachable without crossing lock.
+
+### Pacing Intensity Scores
+
+- start: 0, altar: 1, rest: 1, confession: 2, reliquary: 3, combat: 6, boss: 10.
+
+### Fail-Fast Reroll
+
+- Validator rejects invalid seeds; generator increments seed and retries (max 100 attempts).
+- In 4000-seed sweep (1000 seeds × 4 floors), max attempts observed: 60, typical: 1–3.

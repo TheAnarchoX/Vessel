@@ -1,0 +1,9 @@
+[
+  {"id":"room_start","type":"start","intensity":0,"allowsCombatLock":false,"notes":"Run entry room"},
+  {"id":"room_boss","type":"boss","intensity":10,"allowsCombatLock":true,"notes":"Floor boss arena"},
+  {"id":"room_combat","type":"combat","intensity":6,"allowsCombatLock":true,"notes":"Standard encounter room"},
+  {"id":"room_altar","type":"altar","intensity":1,"allowsCombatLock":false,"notes":"Economy recovery room"},
+  {"id":"room_confession","type":"confession","intensity":2,"allowsCombatLock":false,"notes":"Corruption choice room"},
+  {"id":"room_reliquary","type":"reliquary","intensity":3,"allowsCombatLock":false,"notes":"Item reward room"},
+  {"id":"room_rest","type":"rest","intensity":1,"allowsCombatLock":false,"notes":"Low-pressure valley room"}
+]

@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VESSEL Enemy Archetype",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "behavior", "role", "baseHealth", "baseSpeed", "telegraphMs", "readMs", "recoverMs"],
+    "properties": {
+      "id": { "type": "string", "minLength": 1 },
+      "behavior": { "type": "string", "enum": ["chase", "charge", "kite", "summon", "zone"] },
+      "role": { "type": "string", "enum": ["melee", "ranged", "area"] },
+      "baseHealth": { "type": "number", "minimum": 1 },
+      "baseSpeed": { "type": "number", "minimum": 1 },
+      "telegraphMs": { "type": "number", "minimum": 100, "maximum": 1200 },
+      "readMs": { "type": "number", "minimum": 100, "maximum": 1200 },
+      "recoverMs": { "type": "number", "minimum": 100, "maximum": 1600 }
+    }
+  }
+}

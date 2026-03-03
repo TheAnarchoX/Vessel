@@ -2,6 +2,14 @@
 
 Store architecture decisions as markdown files in this folder.
 
+## Current ADRs
+
+- `0001-phase1-runtime-seam.md`
+- `0002-phase3-boss-state-machines.md`
+- `0003-phase4-item-synergy-system.md`
+- `0004-phase6-dungeon-generation.md`
+- `0005-phase7-architecture-toolchain.md`
+
 ## Naming
 
 - Use incrementing IDs, e.g. `0001-simulation-model.md`, `0002-content-schema.md`.

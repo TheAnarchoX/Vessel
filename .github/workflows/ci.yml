@@ -1,0 +1,43 @@
+name: vessel-phase7-ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type contracts
+        run: npm run typecheck
+
+      - name: Boundary enforcement
+        run: npm run check:boundaries
+
+      - name: Content schema validation
+        run: npm run check:content
+
+      - name: Replay determinism contract
+        run: npm run check:replay
+
+      - name: Dependency license audit
+        run: npm run check:licenses
+
+      - name: Existing deterministic phase checks
+        run: npm run check:phase3 && npm run check:phase4 && npm run check:phase6
