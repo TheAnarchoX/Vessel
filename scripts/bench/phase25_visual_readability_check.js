@@ -12,19 +12,33 @@ function assert(condition, message) {
 
 const checklistRows = Object.entries(ANIMATION_CHECKLIST).map(([entity, states]) => `${entity}:${states.join("|")}`);
 console.log("phase25_animation_checklist", JSON.stringify(checklistRows));
-assert(ANIMATION_CHECKLIST.player.includes("idle") && ANIMATION_CHECKLIST.player.includes("move"), "player checklist missing core states");
-assert(ANIMATION_CHECKLIST.enemy.includes("attack-telegraph") && ANIMATION_CHECKLIST.enemy.includes("death"), "enemy checklist missing combat states");
+const REQUIRED_CHECKLIST = {
+  player: ["idle", "move", "attack-telegraph", "hit"],
+  enemy: ["idle", "move", "attack-telegraph", "hit", "death", "spawn"],
+  item: ["idle", "spawn", "pickup"],
+  boss: ["idle", "move", "attack-telegraph", "hit", "death", "spawn"],
+};
+for (const [entity, required] of Object.entries(REQUIRED_CHECKLIST)) {
+  for (const state of required) {
+    assert(ANIMATION_CHECKLIST[entity]?.includes(state), `${entity} checklist missing state: ${state}`);
+  }
+}
 
-const nowMs = 20260303;
+const ANIMATION_TEST_TIMESTAMP_MS = 1000;
 const stateSamples = [
-  evaluateEnemyAnimationState({ type: "penitent", hp: 3, cd: 0.12, charge: 0, slowT: 0, x: 120, y: 110 }, nowMs),
-  evaluateEnemyAnimationState({ type: "hollowed", hp: 3, cd: 0.7, charge: 0.3, slowT: 0, x: 210, y: 150 }, nowMs),
-  evaluateEnemyAnimationState({ type: "wisp", hp: 3, cd: 0.7, charge: 0, slowT: 0.4, x: 310, y: 160 }, nowMs),
-  evaluateEnemyAnimationState({ type: "plague", hp: 0, cd: 0.7, charge: 0, slowT: 0, x: 410, y: 170 }, nowMs),
+  evaluateEnemyAnimationState({ type: "penitent", hp: 3, spawnT: 0.4, cd: 1, charge: 0, slowT: 0, hitT: 0, x: 40, y: 30 }, ANIMATION_TEST_TIMESTAMP_MS),
+  evaluateEnemyAnimationState({ type: "hollowed", hp: 3, spawnT: 0, cd: 1, charge: 0, slowT: 0.4, hitT: 0, x: 50, y: 40 }, ANIMATION_TEST_TIMESTAMP_MS),
+  evaluateEnemyAnimationState({ type: "wisp", hp: 3, spawnT: 0, cd: 0.12, charge: 0, slowT: 0, hitT: 0, x: 60, y: 50 }, ANIMATION_TEST_TIMESTAMP_MS),
+  evaluateEnemyAnimationState({ type: "bonecrawler", hp: 3, spawnT: 0, cd: 1, charge: 0, slowT: 0, hitT: 0, x: 100, y: 0 }, ANIMATION_TEST_TIMESTAMP_MS),
+  evaluateEnemyAnimationState({ type: "revenant", hp: 3, spawnT: 0, cd: 1, charge: 0, slowT: 0, hitT: 0, x: 0, y: 0 }, ANIMATION_TEST_TIMESTAMP_MS),
+  evaluateEnemyAnimationState({ type: "plague", hp: 0, spawnT: 0, cd: 1, charge: 0, slowT: 0, hitT: 0, x: 70, y: 60 }, ANIMATION_TEST_TIMESTAMP_MS),
 ];
 console.log("phase25_animation_states", JSON.stringify(stateSamples));
+assert(stateSamples.includes("spawn"), "spawn state did not evaluate");
 assert(stateSamples.includes("attack-telegraph"), "telegraph state did not evaluate");
 assert(stateSamples.includes("hit"), "hit state did not evaluate");
+assert(stateSamples.includes("move"), "move state did not evaluate");
+assert(stateSamples.includes("idle"), "idle state did not evaluate");
 assert(stateSamples.includes("death"), "death state did not evaluate");
 
 const stressEnemies = composeEncounter({ roomIntent: "boss", wave: 7, seed: 20260303 }).map((enemy, i) => ({

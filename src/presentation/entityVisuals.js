@@ -27,7 +27,7 @@
   function evaluateEnemyAnimationState(enemy, nowMs) {
     if (enemy.hp <= 0) return "death";
     if (enemy.spawnT > 0) return "spawn";
-    if (enemy.slowT > 0 || enemy.invulnHit > 0) return "hit";
+    if (enemy.slowT > 0 || enemy.hitT > 0 || enemy.invulnHit > 0) return "hit";
     if (enemy.charge > 0 || enemy.cd <= 0.2) return "attack-telegraph";
     const wobble = Math.sin(nowMs * 0.006 + enemy.x * 0.01 + enemy.y * 0.01);
     return wobble > 0.4 ? "move" : "idle";
@@ -102,9 +102,13 @@
   }
 
   function renderPickup(ctx, pickup, nowMs) {
+    const state = pickup.spawnT > 0 ? "spawn" : "idle";
     const glow = 1 + Math.sin(nowMs * 0.01) * 0.08;
+    const width = 20 * glow;
+    const height = state === "spawn" ? 24 : 28;
     ctx.fillStyle = "#2d1f12"; ctx.fillRect(pickup.x - 14, pickup.y + 8, 28, 8);
-    ctx.fillStyle = "#f2e4bf"; ctx.fillRect(pickup.x - 10 * glow, pickup.y - 18, 20 * glow, 28);
+    ctx.fillStyle = "#f2e4bf"; ctx.fillRect(pickup.x - width / 2, pickup.y - 18, width, height);
+    return state;
   }
 
   function renderProjectile(ctx, shot) {
