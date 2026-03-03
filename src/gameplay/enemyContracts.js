@@ -3,7 +3,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.VesselGameplay = Object.assign(root.VesselGameplay || {}, api);
 })(typeof globalThis !== "undefined" ? globalThis : window, function () {
-  const BEHAVIOR_TYPES = ["chase", "charge", "kite", "summon", "zone"];
+  const BEHAVIOR_TYPES = ["chase", "charge", "kite", "summon", "zone", "support", "disruptor"];
 
   const BEHAVIOR_CONTRACTS = {
     chase: { telegraphMs: 220, readMs: 280, recoverMs: 320, cooldownMs: 850, damage: 1, source: "body", range: 34 },
@@ -11,6 +11,8 @@
     kite: { telegraphMs: 180, readMs: 320, recoverMs: 260, cooldownMs: 900, damage: 0.75, source: "projectile", range: 220 },
     summon: { telegraphMs: 420, readMs: 260, recoverMs: 380, cooldownMs: 1250, summonCount: 2, source: "summon", range: 180 },
     zone: { telegraphMs: 300, readMs: 460, recoverMs: 340, cooldownMs: 1050, damage: 0.8, source: "sigil", range: 130 },
+    support: { telegraphMs: 260, readMs: 300, recoverMs: 280, cooldownMs: 980, amount: 0.3, source: "chant", range: 200 },
+    disruptor: { telegraphMs: 310, readMs: 240, recoverMs: 300, cooldownMs: 1040, amount: 0.6, source: "hex", range: 160 },
   };
 
   const ROLE_BY_BEHAVIOR = {
@@ -19,7 +21,32 @@
     kite: "ranged",
     summon: "ranged",
     zone: "area",
+    support: "ranged",
+    disruptor: "area",
   };
+
+  const ENEMY_ROSTER = [
+    { id: "penitent", behavior: "chase", role: "melee", baseHealth: 2, baseSpeed: 62, baseDamage: 0.55, pathAffinity: "ascetic", color: "#89272d" },
+    { id: "bonecrawler", behavior: "chase", role: "melee", baseHealth: 3, baseSpeed: 106, baseDamage: 0.95, pathAffinity: "unaligned", color: "#bcbaaa" },
+    { id: "flagellant", behavior: "chase", role: "melee", baseHealth: 4, baseSpeed: 78, baseDamage: 1.05, pathAffinity: "ascetic", color: "#9f3f46" },
+    { id: "dread_hound", behavior: "chase", role: "melee", baseHealth: 4, baseSpeed: 94, baseDamage: 1.1, pathAffinity: "demonic", color: "#6f1e22" },
+    { id: "hollowed", behavior: "charge", role: "melee", baseHealth: 3, baseSpeed: 75, baseDamage: 1, pathAffinity: "demonic", color: "#c7b39e" },
+    { id: "revenant", behavior: "charge", role: "melee", baseHealth: 6, baseSpeed: 55, baseDamage: 1.35, pathAffinity: "unaligned", color: "#7c7c7c" },
+    { id: "lancer", behavior: "charge", role: "melee", baseHealth: 5, baseSpeed: 70, baseDamage: 1.2, pathAffinity: "ascetic", color: "#c17f61" },
+    { id: "gore_ram", behavior: "charge", role: "melee", baseHealth: 5, baseSpeed: 82, baseDamage: 1.25, pathAffinity: "demonic", color: "#7c2620" },
+    { id: "wisp", behavior: "kite", role: "ranged", baseHealth: 2, baseSpeed: 56, baseDamage: 0.55, pathAffinity: "unaligned", color: "#805ca0" },
+    { id: "seraph", behavior: "kite", role: "ranged", baseHealth: 5, baseSpeed: 84, baseDamage: 0.95, pathAffinity: "ascetic", color: "#ca8054" },
+    { id: "chorister", behavior: "kite", role: "ranged", baseHealth: 3, baseSpeed: 66, baseDamage: 0.8, pathAffinity: "unaligned", color: "#8d5ca8" },
+    { id: "soul_archer", behavior: "kite", role: "ranged", baseHealth: 4, baseSpeed: 72, baseDamage: 0.95, pathAffinity: "demonic", color: "#8e4a7e" },
+    { id: "acolyte", behavior: "summon", role: "ranged", baseHealth: 4, baseSpeed: 48, baseDamage: 0.85, pathAffinity: "demonic", color: "#6d3f33" },
+    { id: "vesper_guard", behavior: "summon", role: "ranged", baseHealth: 5, baseSpeed: 52, baseDamage: 0.9, pathAffinity: "ascetic", color: "#58718d" },
+    { id: "heretic", behavior: "summon", role: "ranged", baseHealth: 4, baseSpeed: 50, baseDamage: 1, pathAffinity: "demonic", color: "#5d273f" },
+    { id: "maggot", behavior: "summon", role: "ranged", baseHealth: 3, baseSpeed: 58, baseDamage: 0.75, pathAffinity: "demonic", color: "#797252" },
+    { id: "sigilist", behavior: "zone", role: "area", baseHealth: 4, baseSpeed: 52, baseDamage: 0.8, pathAffinity: "unaligned", color: "#4f829f" },
+    { id: "plague", behavior: "zone", role: "area", baseHealth: 4, baseSpeed: 50, baseDamage: 1, pathAffinity: "demonic", color: "#4f7f45" },
+    { id: "cantor", behavior: "support", role: "ranged", baseHealth: 4, baseSpeed: 60, baseDamage: 0.7, pathAffinity: "ascetic", color: "#6d8c75" },
+    { id: "obscurer", behavior: "disruptor", role: "area", baseHealth: 5, baseSpeed: 58, baseDamage: 0.95, pathAffinity: "demonic", color: "#412a57" },
+  ];
 
   const ELITE_MODIFIERS = {
     faster: { speedScale: 1.2 },
@@ -34,6 +61,13 @@
       state = (1664525 * state + 1013904223) >>> 0;
       return state / 4294967296;
     };
+  }
+
+  function getEnemyArchetype(id) {
+    for (const archetype of ENEMY_ROSTER) {
+      if (archetype.id === id) return archetype;
+    }
+    return null;
   }
 
   function createEnemyBehaviorState({ id, behavior, x = 0, y = 0, speed = 62, health = 3, modifier = null }) {
@@ -57,6 +91,25 @@
     };
     if (modifier) applyEliteModifier(enemy, modifier);
     enemy.cooldownMs = BEHAVIOR_CONTRACTS[behavior].cooldownMs;
+    return enemy;
+  }
+
+  function createEnemyFromArchetype(archetypeId, options = {}) {
+    const archetype = getEnemyArchetype(archetypeId);
+    if (!archetype) throw new Error(`Unknown enemy archetype: ${archetypeId}`);
+    const enemy = createEnemyBehaviorState({
+      id: options.id || archetype.id,
+      behavior: archetype.behavior,
+      x: options.x || 0,
+      y: options.y || 0,
+      speed: options.speed || archetype.baseSpeed,
+      health: options.health || archetype.baseHealth,
+      modifier: options.modifier || null,
+    });
+    enemy.type = archetype.id;
+    enemy.pathAffinity = archetype.pathAffinity;
+    enemy.color = archetype.color;
+    enemy.damage = archetype.baseDamage;
     return enemy;
   }
 
@@ -110,7 +163,8 @@
     if (enemy.state !== "read" || enemy.windowConsumed) return;
     enemy.windowConsumed = true;
     const dist = distanceToTarget(enemy, target);
-    const damage = contract.damage ? contract.damage * (enemy.damageScale || 1) : 0;
+    const damageBase = contract.damage != null ? contract.damage : (contract.amount != null ? contract.amount : 0);
+    const damage = damageBase * (enemy.damageScale || 1);
     const base = {
       enemyId: enemy.id,
       behavior: enemy.behavior,
@@ -126,6 +180,14 @@
     }
     if (enemy.behavior === "summon") {
       events.push(Object.assign({ type: "summon", count: contract.summonCount }, base));
+      return;
+    }
+    if (enemy.behavior === "support") {
+      events.push(Object.assign({ type: "buff_aura", hasteScale: 1 + contract.amount }, base));
+      return;
+    }
+    if (enemy.behavior === "disruptor") {
+      events.push(Object.assign({ type: "disrupt", slowSec: 0.6, amount: damage }, base));
       return;
     }
     if (enemy.behavior === "zone") {
@@ -148,7 +210,7 @@
       enemy.y += ny * sign * speedPerMs * dtMs;
       return;
     }
-    if (enemy.behavior === "zone" || enemy.behavior === "summon") {
+    if (enemy.behavior === "zone" || enemy.behavior === "summon" || enemy.behavior === "support" || enemy.behavior === "disruptor") {
       const tangentX = -ny;
       const tangentY = nx;
       enemy.x += tangentX * speedPerMs * dtMs * 0.65;
@@ -202,25 +264,29 @@
     return enemies.slice(0, maxLines).map(buildEnemyDebugOverlay);
   }
 
-  function composeEncounter({ seed = 1, roomIntent = "combat", wave = 1 }) {
+  function composeEncounter({ seed = 1, roomIntent = "combat", wave = 1 } = {}) {
     const rng = createDeterministicRng(seed);
     const roster = [];
-    const required = roomIntent === "combat" ? ["chase", "kite", "zone"] : ["chase", "charge", "kite", "summon", "zone"];
+    const required = roomIntent === "combat"
+      ? ["chase", "kite", "zone", "support"]
+      : ["chase", "charge", "kite", "summon", "zone", "support", "disruptor"];
+
     for (const behavior of required) {
-      roster.push(createEnemyBehaviorState({
-        id: `${behavior}-${roster.length}`,
-        behavior,
+      const candidates = ENEMY_ROSTER.filter((entry) => entry.behavior === behavior);
+      const pick = candidates[Math.floor(rng() * candidates.length) % candidates.length];
+      roster.push(createEnemyFromArchetype(pick.id, {
+        id: `${pick.id}-${roster.length}`,
         x: 120 + Math.floor(rng() * 500),
         y: 80 + Math.floor(rng() * 260),
         modifier: rng() > 0.88 ? ["faster", "armored", "cursed", "berserk"][Math.floor(rng() * 4)] : null,
       }));
     }
+
     const extras = Math.max(0, wave - 1);
     for (let i = 0; i < extras; i++) {
-      const behavior = BEHAVIOR_TYPES[Math.floor(rng() * BEHAVIOR_TYPES.length)];
-      roster.push(createEnemyBehaviorState({
-        id: `extra-${i}`,
-        behavior,
+      const archetype = ENEMY_ROSTER[Math.floor(rng() * ENEMY_ROSTER.length)];
+      roster.push(createEnemyFromArchetype(archetype.id, {
+        id: `extra-${i}-${archetype.id}`,
         x: 120 + Math.floor(rng() * 500),
         y: 80 + Math.floor(rng() * 260),
       }));
@@ -258,9 +324,12 @@
   return {
     BEHAVIOR_TYPES,
     BEHAVIOR_CONTRACTS,
+    ENEMY_ROSTER,
     ELITE_MODIFIERS,
     ROLE_BY_BEHAVIOR,
     createDeterministicRng,
+    getEnemyArchetype,
+    createEnemyFromArchetype,
     createEnemyBehaviorState,
     updateEnemyBehavior,
     buildEnemyDebugOverlay,

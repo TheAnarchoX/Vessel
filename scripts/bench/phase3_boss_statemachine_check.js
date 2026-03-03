@@ -45,7 +45,10 @@ function check(label, fn) {
 
 // ── 1. Boss definition structure ──────────────────────────────────────
 console.log("\n1. Boss definition structure");
-const EXPECTED_BOSSES = ["shepherd", "pit", "choir"];
+const EXPECTED_BOSSES = Object.keys(BOSS_DEFINITIONS).sort();
+check("boss roster count is 10", () => {
+  assert.strictEqual(EXPECTED_BOSSES.length, 10, "Phase 11B requires exactly 10 bosses");
+});
 for (const id of EXPECTED_BOSSES) {
   check(`${id} definition exists`, () => {
     assert.ok(BOSS_DEFINITIONS[id], `Missing definition for ${id}`);

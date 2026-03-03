@@ -2,7 +2,10 @@ const assert = require("assert");
 const { advanceFixedStep } = require("../../src/core/fixedStep.js");
 const {
   BEHAVIOR_TYPES,
+  ENEMY_ROSTER,
   ELITE_MODIFIERS,
+  getEnemyArchetype,
+  createEnemyFromArchetype,
   createEnemyBehaviorState,
   updateEnemyBehavior,
   buildEncounterDebugOverlay,
@@ -62,6 +65,8 @@ function runAttackPath(behavior) {
     kite: "projectile",
     summon: "summon",
     zone: "zone",
+    support: "buff_aura",
+    disruptor: "disrupt",
   };
   const actionType = contractActionByBehavior[behavior];
   const action = events.find((e) => e.type === actionType && e.window === "read" && e.attackId > 0);
@@ -74,6 +79,18 @@ function runAttackPath(behavior) {
     firstAction: action,
     overlay: buildEncounterDebugOverlay([enemy])[0],
   };
+}
+
+assert.strictEqual(ENEMY_ROSTER.length, 20, "Phase 11B requires exactly 20 enemy archetypes");
+for (const behavior of ["chase", "charge", "kite", "summon", "zone", "support", "disruptor"]) {
+  assert.ok(ENEMY_ROSTER.some((entry) => entry.behavior === behavior), `Missing behavior coverage for ${behavior}`);
+}
+
+for (const archetype of ENEMY_ROSTER) {
+  const lookup = getEnemyArchetype(archetype.id);
+  assert.ok(lookup, `archetype lookup failed for ${archetype.id}`);
+  const enemy = createEnemyFromArchetype(archetype.id, { id: `${archetype.id}-sample` });
+  assert.strictEqual(enemy.behavior, archetype.behavior, `${archetype.id} behavior mismatch`);
 }
 
 const attackPathEvidence = BEHAVIOR_TYPES.map(runAttackPath);

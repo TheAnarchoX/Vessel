@@ -614,8 +614,7 @@ Ship a content-rich, route-distinct, production-ready build in controlled alpha/
 
 ##### 11B Agent Prompt
 
-"For Phase 11B (Combat Content Expansion): act as Gameplay + QA agents and deliver the 10-boss/20-enemy expansion using deterministic behavior and boss phase-state contracts in `src/gameplay`. Preserve telegraph/read/recover readability and encounter pressure-mix guarantees under stress, and require reproducible `scripts/bench` outputs plus overlay captures for validation. Execute the approved 11B scope end-to-end in full before handoff; do not stop at partial implementation."
-
+"For Phase 11B (Combat Content Expansion): act as Gameplay + QA agents and deliver the 10-boss/20-enemy expansion using deterministic behavior and boss phase-state contracts in `src/gameplay`. Preserve telegraph/read/recover readability and encounter pressure-mix guarantees under stress, and require reproducible `scripts/bench` outputs plus overlay captures for validation. Execute the approved 11B scope end-to-end in full before handoff; do not stop at partial implement
 #### Phase 11C - Item and Build Ecosystem Expansion
 
 ##### 11C Scope

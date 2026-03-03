@@ -333,6 +333,30 @@
 
     let _enemyUid = 0;
     function spawnEnemy(type, x, y) {
+      const archetype = VesselGameplay.getEnemyArchetype ? VesselGameplay.getEnemyArchetype(type) : null;
+      if (archetype) {
+        return {
+          type,
+          behavior: archetype.behavior,
+          pathAffinity: archetype.pathAffinity,
+          x,
+          y,
+          _uid: ++_enemyUid,
+          r: ["summon", "zone", "support", "disruptor"].includes(archetype.behavior) ? 16 : 14,
+          hp: archetype.baseHealth,
+          maxHp: archetype.baseHealth,
+          speed: archetype.baseSpeed,
+          damage: archetype.baseDamage || 1,
+          color: archetype.color || "#9a8896",
+          cd: Math.random() * 1.5,
+          phase: 1,
+          slowT: 0,
+          hitT: 0,
+          spawnT: 0.6,
+          split: false,
+          delay: [],
+        };
+      }
       const stat = {
         penitent:[2,60,0.5,"#89272d"], hollowed:[3,75,1,"#c7b39e"], wisp:[2,0,0.5,"#805ca0"],
         bonecrawler:[3,110,1,"#bcbaaa"], revenant:[6,55,1.5,"#7c7c7c"], plague:[4,50,1,"#4f7f45"],
@@ -342,10 +366,26 @@
       return { type, x, y, _uid: ++_enemyUid, r: (type==="shepherd"||type==="pit")?36:(type==="tendril"?22:14), hp: stat[0], maxHp: stat[0], speed: stat[1], damage: stat[2], color: stat[3], cd: Math.random()*1.5, phase: 1, slowT: 0, hitT: 0, spawnT: 0.6, split:false, delay:[] };
     }
     function enemyTypeForFloor() {
+      if (VesselGameplay.ENEMY_ROSTER) {
+        const pools = [
+          ["penitent", "flagellant", "wisp", "cantor", "hollowed"],
+          ["bonecrawler", "revenant", "sigilist", "chorister", "lancer"],
+          ["seraph", "vesper_guard", "plague", "soul_archer", "acolyte"],
+          ["gore_ram", "heretic", "obscurer", "maggot", "dread_hound"],
+        ];
+        return randomOf(pools[Math.max(0, Math.min(pools.length - 1, G.floor))]);
+      }
       if (G.floor===0) return randomOf(["penitent","hollowed","wisp"]);
       if (G.floor===1) return randomOf(["bonecrawler","revenant","plague"]);
       if (G.floor===2) return randomOf(["seraph","choir","tendril"]);
       return randomOf(["seraph","hollowed","penitent"]);
+    }
+
+    function resolveRouteAffinity() {
+      const c = G.player?.corruption || 0;
+      if (c >= 60) return "demonic";
+      if (c <= 30) return "ascetic";
+      return "unaligned";
     }
 
     function createOptionPedestal(name, subtitle, description, optionType, x, y) {
@@ -446,7 +486,9 @@
         G.room.spawned = true;
         if (G.room.type==="combat") for (let i=0;i<2+G.floor;i++) G.room.enemies.push(spawnEnemy(enemyTypeForFloor(), ROOM_X+130+Math.random()*(ROOM_PX_W-260), ROOM_Y+120+Math.random()*(ROOM_PX_H-240)));
         if (G.room.type==="boss") {
-          const bossType = G.floor===3?"pit":G.floor===2?"choir":"shepherd";
+          const bossType = VesselGameplay.selectBossForFloor
+            ? VesselGameplay.selectBossForFloor(G.floor, ((G.runSeed || 1) + G.room.x * 37 + G.room.y * 53) >>> 0)
+            : (G.floor===3?"pit":G.floor===2?"choir":"shepherd");
           const def = VesselGameplay.BOSS_DEFINITIONS[bossType];
           if (def) {
             const boss = VesselGameplay.createBossState(def, W/2, H/2-40, G.floor*1000+7);
@@ -738,7 +780,7 @@
       if (G.bossInputLocked) {
         // Still update boss during input lock
         if (G.activeBoss && !G.activeBoss.dead) {
-          const bossCtx = { dtMs: dt * 1000, target: { x: p.x, y: p.y }, roomBounds: { x: ROOM_X+TILE, y: ROOM_Y+TILE, w: ROOM_PX_W-TILE*2, h: ROOM_PX_H-TILE*2 } };
+          const bossCtx = { dtMs: dt * 1000, target: { x: p.x, y: p.y }, roomBounds: { x: ROOM_X+TILE, y: ROOM_Y+TILE, w: ROOM_PX_W-TILE*2, h: ROOM_PX_H-TILE*2 }, routeAffinity: resolveRouteAffinity() };
           const bossEvents = VesselGameplay.updateBoss(G.activeBoss, bossCtx);
           G.bossInputLocked = G.activeBoss.inputLocked;
           for (const ev of bossEvents) {
@@ -815,7 +857,7 @@
       // --- Boss state machine update ---
       if (G.activeBoss && G.activeBoss.hp > 0 && VesselGameplay.updateBoss) {
         const boss = G.activeBoss;
-        const bossCtx = { dtMs: dt * 1000, target: { x: p.x, y: p.y }, roomBounds: { x: l, y: t, w: r - l, h: b - t } };
+        const bossCtx = { dtMs: dt * 1000, target: { x: p.x, y: p.y }, roomBounds: { x: l, y: t, w: r - l, h: b - t }, routeAffinity: resolveRouteAffinity() };
         const bossEvents = VesselGameplay.updateBoss(boss, bossCtx);
         G.bossInputLocked = boss.inputLocked;
         // Clamp boss position
@@ -832,8 +874,9 @@
           if (ev.type === "phase_enter") { G.bossPhaseFlash = 0.4; prevPhase = ev.phaseId; }
           if (ev.type === "summon") {
             for (let i = 0; i < (ev.count || 1); i++) {
-              const ang = Math.random() * Math.PI * 2;
-              const dist = boss.r + 30 + Math.random() * 40;
+              const rng = boss._rng || Math.random;
+              const ang = rng() * Math.PI * 2;
+              const dist = boss.r + 30 + rng() * 40;
               es.push(spawnEnemy(ev.summonType || "penitent", boss.x + Math.cos(ang) * dist, boss.y + Math.sin(ang) * dist));
             }
           }

@@ -136,7 +136,7 @@ Use this checklist for any dependency/tooling introduction or update:
 - Screen vignette intensifies with corruption tier (none → dark amber → crimson → deep purple).
 - Whisper text displays as italic serif overlay at 82% canvas height, fades in/out.
 - Floor narrative beats render as centered dark overlay boxes with gothic borders during transitions.
-- Confession room prompt shows resist/yield options with color-coded cues (green resist, red yield).
+- Confession room presents resist/yield outcomes as walk-over pedestal choices for parity with other option-room interactions.
 - Ending screen uses full-screen dark overlay with serif title and wrapped description.
 - All HUD corruption elements maintain high-contrast readability against the dark base palette.
 
@@ -183,9 +183,9 @@ Use this checklist for any dependency/tooling introduction or update:
 
 ### Route Identity Expansion
 
-- Future content should support two explicit corruption-route identities:
-   - Demonic Path (high corruption): stronger immediate output, harsher stability and readability pressures, heavier body-horror AV treatment.
-   - Ascetic Path (low corruption): cleaner control/survivability tools, lower volatility, restrained but severe ritual AV treatment.
+- Future content should support two explicit corruption-route identities.
+- Demonic Path (high corruption): stronger immediate output, harsher stability and readability pressures, heavier body-horror AV treatment.
+- Ascetic Path (low corruption): cleaner control/survivability tools, lower volatility, restrained but severe ritual AV treatment.
 - Both routes must remain inside horror framing and spiritual-cost narrative constraints.
 - Route mechanics must integrate with existing confession/relic/ending systems rather than replacing them.
 

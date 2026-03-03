@@ -30,7 +30,7 @@
     required: ["id", "behavior", "role", "baseHealth", "baseSpeed", "pathAffinity", "telegraphMs", "readMs", "recoverMs"],
     properties: {
       id: { type: "string", minLength: 1 },
-      behavior: { type: "string", enum: ["chase", "charge", "kite", "summon", "zone"] },
+      behavior: { type: "string", enum: ["chase", "charge", "kite", "summon", "zone", "support", "disruptor"] },
       role: { type: "string", enum: ["melee", "ranged", "area"] },
       baseHealth: { type: "number", minimum: 1 },
       baseSpeed: { type: "number", minimum: 1 },

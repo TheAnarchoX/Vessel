@@ -1,7 +1,22 @@
 [
-  {"id":"penitent","behavior":"chase","role":"melee","baseHealth":2,"baseSpeed":60,"pathAffinity":"ascetic","telegraphMs":220,"readMs":280,"recoverMs":320},
+  {"id":"penitent","behavior":"chase","role":"melee","baseHealth":2,"baseSpeed":62,"pathAffinity":"ascetic","telegraphMs":220,"readMs":280,"recoverMs":320},
+  {"id":"bonecrawler","behavior":"chase","role":"melee","baseHealth":3,"baseSpeed":106,"pathAffinity":"unaligned","telegraphMs":220,"readMs":280,"recoverMs":320},
+  {"id":"flagellant","behavior":"chase","role":"melee","baseHealth":4,"baseSpeed":78,"pathAffinity":"ascetic","telegraphMs":240,"readMs":280,"recoverMs":320},
+  {"id":"dread_hound","behavior":"chase","role":"melee","baseHealth":4,"baseSpeed":94,"pathAffinity":"demonic","telegraphMs":210,"readMs":270,"recoverMs":300},
   {"id":"hollowed","behavior":"charge","role":"melee","baseHealth":3,"baseSpeed":75,"pathAffinity":"demonic","telegraphMs":360,"readMs":220,"recoverMs":420},
-  {"id":"wisp","behavior":"kite","role":"ranged","baseHealth":2,"baseSpeed":55,"pathAffinity":"unaligned","telegraphMs":180,"readMs":320,"recoverMs":260},
+  {"id":"revenant","behavior":"charge","role":"melee","baseHealth":6,"baseSpeed":55,"pathAffinity":"unaligned","telegraphMs":380,"readMs":240,"recoverMs":430},
+  {"id":"lancer","behavior":"charge","role":"melee","baseHealth":5,"baseSpeed":70,"pathAffinity":"ascetic","telegraphMs":340,"readMs":220,"recoverMs":390},
+  {"id":"gore_ram","behavior":"charge","role":"melee","baseHealth":5,"baseSpeed":82,"pathAffinity":"demonic","telegraphMs":320,"readMs":210,"recoverMs":370},
+  {"id":"wisp","behavior":"kite","role":"ranged","baseHealth":2,"baseSpeed":56,"pathAffinity":"unaligned","telegraphMs":180,"readMs":320,"recoverMs":260},
+  {"id":"seraph","behavior":"kite","role":"ranged","baseHealth":5,"baseSpeed":84,"pathAffinity":"ascetic","telegraphMs":200,"readMs":320,"recoverMs":260},
+  {"id":"chorister","behavior":"kite","role":"ranged","baseHealth":3,"baseSpeed":66,"pathAffinity":"unaligned","telegraphMs":190,"readMs":310,"recoverMs":250},
+  {"id":"soul_archer","behavior":"kite","role":"ranged","baseHealth":4,"baseSpeed":72,"pathAffinity":"demonic","telegraphMs":190,"readMs":330,"recoverMs":270},
   {"id":"acolyte","behavior":"summon","role":"ranged","baseHealth":4,"baseSpeed":48,"pathAffinity":"demonic","telegraphMs":420,"readMs":260,"recoverMs":380},
-  {"id":"sigilist","behavior":"zone","role":"area","baseHealth":4,"baseSpeed":52,"pathAffinity":"unaligned","telegraphMs":300,"readMs":460,"recoverMs":340}
+  {"id":"vesper_guard","behavior":"summon","role":"ranged","baseHealth":5,"baseSpeed":52,"pathAffinity":"ascetic","telegraphMs":430,"readMs":280,"recoverMs":390},
+  {"id":"heretic","behavior":"summon","role":"ranged","baseHealth":4,"baseSpeed":50,"pathAffinity":"demonic","telegraphMs":410,"readMs":270,"recoverMs":370},
+  {"id":"maggot","behavior":"summon","role":"ranged","baseHealth":3,"baseSpeed":58,"pathAffinity":"demonic","telegraphMs":390,"readMs":250,"recoverMs":350},
+  {"id":"sigilist","behavior":"zone","role":"area","baseHealth":4,"baseSpeed":52,"pathAffinity":"unaligned","telegraphMs":300,"readMs":460,"recoverMs":340},
+  {"id":"plague","behavior":"zone","role":"area","baseHealth":4,"baseSpeed":50,"pathAffinity":"demonic","telegraphMs":320,"readMs":460,"recoverMs":360},
+  {"id":"cantor","behavior":"support","role":"ranged","baseHealth":4,"baseSpeed":60,"pathAffinity":"ascetic","telegraphMs":260,"readMs":300,"recoverMs":280},
+  {"id":"obscurer","behavior":"disruptor","role":"area","baseHealth":5,"baseSpeed":58,"pathAffinity":"demonic","telegraphMs":310,"readMs":240,"recoverMs":300}
 ]

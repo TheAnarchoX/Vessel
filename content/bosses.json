@@ -1,26 +1,12 @@
 [
-  {
-    "id": "shepherd",
-    "name": "SHEPHERD",
-    "pathAffinity": "ascetic",
-    "phaseCount": 2,
-    "hazardProfile": "summon_swarm",
-    "notes": "Penance pressure with summon cadence checks."
-  },
-  {
-    "id": "pit",
-    "name": "THE PIT",
-    "pathAffinity": "demonic",
-    "phaseCount": 3,
-    "hazardProfile": "arena_confinement",
-    "notes": "Aggressive pressure and confinement escalation."
-  },
-  {
-    "id": "choir",
-    "name": "CHOIR",
-    "pathAffinity": "unaligned",
-    "phaseCount": 3,
-    "hazardProfile": "sigil_and_collapse",
-    "notes": "Spatial denial plus orbiting projectile pressure."
-  }
+  {"id":"shepherd","name":"SHEPHERD","pathAffinity":"ascetic","phaseCount":2,"hazardProfile":"summon_swarm","notes":"Penance pressure with summon cadence checks."},
+  {"id":"pit","name":"THE PIT","pathAffinity":"demonic","phaseCount":3,"hazardProfile":"arena_confinement","notes":"Aggressive pressure and confinement escalation."},
+  {"id":"choir","name":"CHOIR","pathAffinity":"unaligned","phaseCount":3,"hazardProfile":"sigil_and_collapse","notes":"Spatial denial plus orbiting projectile pressure."},
+  {"id":"warden","name":"WARDEN OF LITANY","pathAffinity":"ascetic","phaseCount":2,"hazardProfile":"halo_sigil_mix","notes":"Disciplined radial bursts and prayer summons."},
+  {"id":"reliquary","name":"RELIQUARY ENGINE","pathAffinity":"demonic","phaseCount":3,"hazardProfile":"lance_sigil_confinement","notes":"Relic-forged burst lanes with confinement finish."},
+  {"id":"censer","name":"CENSER MATRON","pathAffinity":"unaligned","phaseCount":2,"hazardProfile":"smoke_zones","notes":"Orbiting denial with volatile summons."},
+  {"id":"martyr","name":"MARTYR TWIN","pathAffinity":"ascetic","phaseCount":3,"hazardProfile":"brand_call_mix","notes":"Aggressive melee pressure with support call-ins."},
+  {"id":"carrion","name":"CARRION CHOIRMASTER","pathAffinity":"demonic","phaseCount":2,"hazardProfile":"wing_confinement","notes":"Dense radial storms and carrion summoning."},
+  {"id":"vesper","name":"VESPER BELL","pathAffinity":"unaligned","phaseCount":3,"hazardProfile":"wave_brand","notes":"Bell-wave pacing with mixed lane pressure."},
+  {"id":"apostate","name":"THE APOSTATE","pathAffinity":"demonic","phaseCount":3,"hazardProfile":"hex_fan_collapse","notes":"Route-reactive burst fan in collapsing lanes."}
 ]

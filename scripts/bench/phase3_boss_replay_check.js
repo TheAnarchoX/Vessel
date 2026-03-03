@@ -11,9 +11,6 @@
 const assert = require("assert");
 const {
   BOSS_DEFINITIONS,
-  createBossState,
-  updateBoss,
-  damageBoss,
 } = require("../../src/gameplay/bossStateMachine.js");
 const {
   createBossReplaySession,
@@ -62,7 +59,7 @@ check("recordReplayInput stores inputs", () => {
 
 // ── 3. Replay determinism ─────────────────────────────────────────────
 console.log("\n3. Replay determinism");
-for (const bossId of ["shepherd", "pit", "choir"]) {
+for (const bossId of Object.keys(BOSS_DEFINITIONS).sort()) {
   check(`${bossId} replay is deterministic`, () => {
     function buildSession() {
       const s = createBossReplaySession(bossId, 777, { x: 480, y: 400, r: 8 });
