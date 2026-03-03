@@ -103,6 +103,27 @@ Create high-identity enemies and balanced encounter compositions.
 
 ---
 
+## Phase 2.5 — Entity Visual Identity and Animation Pass
+
+### Goal
+Make core entities (player, enemies, items, bosses) visually readable, stylistically cohesive, and production-ready before deeper boss/item/corruption expansion.
+
+### Scope
+- [ ] Define visual direction guardrails for sprites, silhouettes, and palette usage per entity category.
+- [ ] Implement baseline sprite sets for player, enemy archetypes, item pickups, and boss shells.
+- [ ] Add gameplay-critical animation states (idle, move, attack telegraph, hit, death/spawn) with readability-first timing.
+- [ ] Add minimum VFX layering for shots, impacts, pickups, and boss cues without obscuring combat telegraphs.
+- [ ] Add entity-readability review overlays/checklist captures for stress scenarios.
+
+### Exit Criteria
+- Combat-relevant entities are instantly distinguishable by silhouette/state under pressure.
+- Visual quality baseline is established for later content phases without harming readability/performance targets.
+
+### Agent Prompt (Phase 2.5)
+"For Phase 2.5 (Entity Visual Identity and Animation Pass): act as Gameplay + Art Direction + QA collaborators and establish entity sprite/animation readability baselines in `src/` presentation boundaries before Phase 3 boss escalation and later content-heavy phases. Use `SPEC.md` `Technical Direction (Revised)`, `UI/HUD Philosophy`, and `Thematic Rules` as guardrails for pixel-art clarity and horror tone. Validate with before/after captures, animation-state checklists, and stress-scene readability evidence."
+
+---
+
 ## Phase 3 — Bosses and Phase-State Combat
 
 ### Goal
@@ -370,5 +391,6 @@ Ship in controlled stages with legal confidence and operational readiness.
 - [x] Initial design/spec/memory documentation present.
 - [x] Phase 0 governance/policy constraints and acceptance gates completed.
 - [x] Phase 1 core feel hardening and initial `src/` runtime foundation completed.
+- [ ] Phase 2.5 entity visual identity and animation baseline pending.
 - [ ] Architecture/toolchain maturation beyond initial foundation (Phase 7 scope) pending.
 - [ ] Quality, performance, and production pipelines pending.

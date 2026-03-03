@@ -63,6 +63,9 @@ This file provides repository-specific execution guidance for human/AI agents wo
 ### Phase 2 Prompt
 "Implement enemy telegraphs and encounter composition contracts; verify with AI debug overlays."
 
+### Phase 2.5 Prompt
+"Establish player/enemy/item/boss sprite and animation readability baselines before boss/item/corruption content expansion."
+
 ### Phase 3 Prompt
 "Build deterministic boss phase machines and validate all transitions/hazard readability."
 
