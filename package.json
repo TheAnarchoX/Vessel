@@ -20,6 +20,7 @@
     "check:phase10": "node scripts/bench/phase10_qa_balance_check.js && npm run check:phase10:test",
     "check:phase11a:test": "node --test tests/phase11/route_foundation.test.js tests/phase11/systems_contracts.test.js",
     "check:phase11a": "node scripts/bench/phase11_route_foundation_check.js && node scripts/bench/phase11_systems_contracts_check.js && npm run check:phase11a:test",
+    "check:phase11b": "node scripts/bench/phase2_enemy_contracts_check.js && node scripts/bench/phase3_boss_statemachine_check.js && node scripts/bench/phase3_boss_replay_check.js && node scripts/bench/phase11_combat_content_check.js",
     "validate": "npm run lint && npm run typecheck && npm run check:boundaries && npm run check:content && npm run check:replay && npm run check:licenses && npm run check:phase3 && npm run check:phase4 && npm run check:phase6 && npm run check:phase10",
     "prepare": "husky"
   },

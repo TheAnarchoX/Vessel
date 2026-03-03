@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-03-03T19:08:59.488Z",
+  "bossCount": 10,
+  "enemyCount": 20,
+  "bossIds": [
+    "apostate",
+    "carrion",
+    "censer",
+    "choir",
+    "martyr",
+    "pit",
+    "reliquary",
+    "shepherd",
+    "vesper",
+    "warden"
+  ],
+  "enemyIds": [
+    "acolyte",
+    "bonecrawler",
+    "cantor",
+    "chorister",
+    "dread_hound",
+    "flagellant",
+    "gore_ram",
+    "heretic",
+    "hollowed",
+    "lancer",
+    "maggot",
+    "obscurer",
+    "penitent",
+    "plague",
+    "revenant",
+    "seraph",
+    "sigilist",
+    "soul_archer",
+    "vesper_guard",
+    "wisp"
+  ],
+  "floorPoolCoverage": [
+    "apostate",
+    "carrion",
+    "censer",
+    "choir",
+    "martyr",
+    "pit",
+    "reliquary",
+    "shepherd",
+    "vesper",
+    "warden"
+  ],
+  "stressSummary": {
+    "iterations": 240,
+    "invalidPressureMix": 0
+  },
+  "overlaySample": [
+    "penitent-0 CHASE IDLE win=0ms cd=850ms atk=0",
+    "lancer-1 CHARGE IDLE win=0ms cd=1000ms atk=0",
+    "seraph-2 KITE IDLE win=0ms cd=900ms atk=0",
+    "vesper_guard-3 SUMMON IDLE win=0ms cd=1250ms atk=0 armored",
+    "sigilist-4 ZONE IDLE win=0ms cd=1050ms atk=0",
+    "cantor-5 SUPPORT IDLE win=0ms cd=980ms atk=0",
+    "obscurer-6 DISRUPTOR IDLE win=0ms cd=1040ms atk=0",
+    "extra-0-lancer CHARGE IDLE win=0ms cd=1000ms atk=0"
+  ],
+  "bossOverlays": {
+    "shepherd": {
+      "id": "shepherd",
+      "phaseId": "shepherd_p1",
+      "health": "38/38",
+      "phaseTimeMs": "2433",
+      "phasesVisited": [
+        "shepherd_p1"
+      ],
+      "attacks": [
+        "shepherd_summon:idle cd=917 win=0 #1"
+      ],
+      "activeHazards": 0,
+      "inputLocked": false,
+      "dead": false
+    },
+    "apostate": {
+      "id": "apostate",
+      "phaseId": "apostate_p1",
+      "health": "68/68",
+      "phaseTimeMs": "2433",
+      "phasesVisited": [
+        "apostate_p1"
+      ],
+      "attacks": [
+        "apostate_sting:telegraph cd=0 win=8 #2",
+        "apostate_sigil:idle cd=805 win=0 #1"
+      ],
+      "activeHazards": 1,
+      "inputLocked": false,
+      "dead": false
+    },
+    "reliquary": {
+      "id": "reliquary",
+      "phaseId": "reliquary_p1",
+      "health": "62/62",
+      "phaseTimeMs": "2433",
+      "phasesVisited": [
+        "reliquary_p1"
+      ],
+      "attacks": [
+        "reliquary_lance:idle cd=175 win=0 #1"
+      ],
+      "activeHazards": 0,
+      "inputLocked": false,
+      "dead": false
+    }
+  }
+}
