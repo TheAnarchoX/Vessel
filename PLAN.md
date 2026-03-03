@@ -130,15 +130,34 @@ Make core entities (player, enemies, items, bosses) visually readable, stylistic
 Deliver memorable bosses with clear escalation and replayable skill tests.
 
 ### Scope
-- [ ] Convert boss scripts into explicit phase state machines.
-- [ ] Add phase ramps via health thresholds and timers.
-- [ ] Add boss-room hazards (pits, sigils, collapsing zones).
-- [ ] Add cinematic intro/outro windows with deliberate input locks.
-- [ ] Add boss replay mode for tuning.
+- [x] Convert boss scripts into explicit phase state machines.
+- [x] Add phase ramps via health thresholds and timers.
+- [x] Add boss-room hazards (pits, sigils, collapsing zones).
+- [x] Add cinematic intro/outro windows with deliberate input locks.
+- [x] Add boss replay mode for tuning.
 
 ### Exit Criteria
 - Boss phases are distinct, understandable, and escalating.
 - Boss outcomes correlate with mastery, not ambiguity.
+
+### Progress
+Phase 3 implementation complete. Three bosses (Shepherd, Pit, Choir) modeled as
+deterministic phase state machines with explicit HP-threshold transition guards.
+Full hazard system (arena confinement, damage sigils, collapsing zones), cinematic
+intro/outro with input locks, and deterministic record/replay. F6 debug overlay
+for live boss state inspection.
+
+**New files:**
+- `src/gameplay/bossStateMachine.js` — phase machine framework + 3 boss definitions
+- `src/gameplay/bossHazards.js` — hazard lifecycle system
+- `src/gameplay/bossReplay.js` — deterministic record/replay
+
+**Modified:**
+- `src/presentation/entityVisuals.js` — choir visuals, hazard rendering, phase flash
+- `index.html` — boss wiring, F6 debug overlay
+
+**Validation:** 33/33 state machine + 7/7 replay tests pass; Phases 1/2/2.5 regression-free.
+**ADR:** `docs/decisions/0002-phase3-boss-state-machines.md`
 
 ### Agent Prompt (Phase 3)
 "For Phase 3 (Bosses and Phase-State Combat): act as Gameplay + Engine agents and model bosses in `src/` as deterministic phase state machines with explicit transition guards (health, timers, triggers). Use `SPEC.md` `Combat Philosophy` (phase escalation) and `Engineering Philosophy` (deterministic simulation) as hard constraints, preserve Phase 1 loop determinism, and record architecture-impacting decisions in `docs/decisions/`. Validate all transition paths, telegraph timing, and hazard readability with replay-friendly evidence."
@@ -151,15 +170,32 @@ Deliver memorable bosses with clear escalation and replayable skill tests.
 Enable wide build expression without dead or broken outcomes.
 
 ### Scope
-- [ ] Define item taxonomy: offense, defense, utility, economy, corruption-tech.
-- [ ] Add synergy matrix for pairs/triples with explicit emergent behavior.
-- [ ] Add anti-synergy safeguards to avoid dead builds.
-- [ ] Add run-history item tracker for balancing.
-- [ ] Build deterministic seed simulation for item fairness.
+- [x] Define item taxonomy: offense, defense, utility, economy, corruption-tech.
+- [x] Add synergy matrix for pairs/triples with explicit emergent behavior.
+- [x] Add anti-synergy safeguards to avoid dead builds.
+- [x] Add run-history item tracker for balancing.
+- [x] Build deterministic seed simulation for item fairness.
 
 ### Exit Criteria
 - Multiple viable build archetypes per run.
 - Item outcomes are exciting but controllable for balance.
+
+### Progress
+Phase 4 implementation complete. 25 items across 5 categories with 14 pair,
+7 triple, and 5 tag-based synergies. Data-driven item definitions (no closures),
+balance-floor enforcement, dead-build detection, run-history tracking, and
+deterministic N-run simulation. F7 debug overlay for live item/synergy inspection.
+
+**New files:**
+- `src/gameplay/itemSystem.js` — item taxonomy, synergy matrix, simulation, run history
+- `scripts/bench/phase4_item_synergy_check.js` — comprehensive validation (246 tests)
+
+**Modified:**
+- `index.html` — altar/reliquary/boss-drop wiring, F7 overlay, combat integration
+- `MEMORY.md` — Phase 4 balancing assumptions documented
+
+**Validation:** 246/246 tests pass; 0 dead builds in 1000-run simulation; browser-verified item pickup, synergy activation, corruption scaling, and overlay rendering.
+**ADR:** `docs/decisions/0003-phase4-item-synergy-system.md`
 
 ### Agent Prompt (Phase 4)
 "For Phase 4 (Itemization, Synergy, and Build Diversity): act as Gameplay + QA agents and define a concrete item taxonomy plus pair/triple synergy matrix implemented/tested from `src/` systems. Ground stat/effect assumptions in `SPEC.md` `Player Systems`, keep deterministic hooks compatible with the Phase 1 runtime seam, and document policy-impacting balancing assumptions in `MEMORY.md`. Use simulations and targeted checks to remove no-op rewards and dead-build outcomes before content expansion."
@@ -391,6 +427,8 @@ Ship in controlled stages with legal confidence and operational readiness.
 - [x] Initial design/spec/memory documentation present.
 - [x] Phase 0 governance/policy constraints and acceptance gates completed.
 - [x] Phase 1 core feel hardening and initial `src/` runtime foundation completed.
+- [x] Phase 3 boss phase state machines, hazards, and replay completed.
+- [x] Phase 4 item taxonomy, synergy matrix, dead-build safeguards, and simulation completed.
 - [ ] Phase 2.5 entity visual identity and animation baseline pending.
 - [ ] Architecture/toolchain maturation beyond initial foundation (Phase 7 scope) pending.
 - [ ] Quality, performance, and production pipelines pending.

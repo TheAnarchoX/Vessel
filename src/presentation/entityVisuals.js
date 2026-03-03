@@ -22,6 +22,7 @@
     tendril: { body: "#190816", accent: "#7f4b65", silhouette: "pillar" },
     shepherd: { body: "#6a3a2b", accent: "#f0c9ab", silhouette: "boss-bulk" },
     pit: { body: "#1d0812", accent: "#9a2f49", silhouette: "boss-bulk" },
+    "choir-boss": { body: "#7b4a9e", accent: "#d5bbeb", silhouette: "boss-bulk" },
   };
 
   function evaluateEnemyAnimationState(enemy, nowMs) {
@@ -118,6 +119,55 @@
     ctx.strokeRect(shot.x - 4, shot.y - 4, 8, 8);
   }
 
+  function renderHazard(ctx, hazard, nowMs) {
+    if (hazard.state === "expired" || hazard.state === "pending") return;
+
+    if (hazard.type === "damage_sigil") {
+      var alpha = hazard.state === "warn" ? (Math.sin(nowMs * 0.02) * 0.3 + 0.35) : 0.7;
+      ctx.fillStyle = "rgba(160,40,70," + alpha + ")";
+      ctx.beginPath();
+      ctx.arc(hazard.x, hazard.y, hazard.radius, 0, Math.PI * 2);
+      ctx.fill();
+      if (hazard.state === "active") {
+        ctx.strokeStyle = "rgba(220,80,90,0.8)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(hazard.x, hazard.y, hazard.radius + 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
+    } else if (hazard.type === "collapsing_zone") {
+      var r = hazard.rect;
+      if (hazard.state === "warn") {
+        ctx.strokeStyle = "rgba(200,60,60," + (Math.sin(nowMs * 0.015) * 0.3 + 0.5) + ")";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+        ctx.lineWidth = 1;
+      } else {
+        ctx.fillStyle = "rgba(90,10,20,0.55)";
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.strokeStyle = "rgba(180,40,50,0.7)";
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+      }
+    } else if (hazard.type === "arena_confinement" && hazard.state === "active") {
+      var rb = hazard.roomBounds;
+      var m = hazard.currentMargin;
+      ctx.strokeStyle = "rgba(160,30,50,0.6)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rb.x + m, rb.y + m, rb.w - m * 2, rb.h - m * 2);
+      ctx.lineWidth = 1;
+    }
+  }
+
+  function renderBossPhaseFlash(ctx, boss, flashTimer, nowMs) {
+    if (flashTimer <= 0) return;
+    var alpha = flashTimer * 0.8;
+    ctx.fillStyle = "rgba(255,240,200," + Math.min(1, alpha) + ")";
+    ctx.beginPath();
+    ctx.arc(boss.x, boss.y, boss.r * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   return {
     ANIMATION_CHECKLIST,
     ENEMY_STYLE,
@@ -127,5 +177,7 @@
     renderEnemy,
     renderPickup,
     renderProjectile,
+    renderHazard,
+    renderBossPhaseFlash,
   };
 });

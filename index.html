@@ -31,6 +31,10 @@
   <script src="src/core/fixedStep.js"></script>
   <script src="src/gameplay/feelMetrics.js"></script>
   <script src="src/gameplay/enemyContracts.js"></script>
+  <script src="src/gameplay/bossHazards.js"></script>
+  <script src="src/gameplay/bossStateMachine.js"></script>
+  <script src="src/gameplay/bossReplay.js"></script>
+  <script src="src/gameplay/itemSystem.js"></script>
   <script src="src/presentation/entityVisuals.js"></script>
   <script src="src/engine/runtime.js"></script>
   <script>
@@ -44,7 +48,8 @@
     const FLOOR_NAMES = ["The Nave", "The Catacombs", "The Ossuary", "The Pit"];
     const MOVE_TUNING = { accel: 1200, friction: 7.5 };
     const SHOT_INTENT_GRACE_MS = 120;
-    const HIT_STOP_MS = 45;
+    const HIT_STOP_MS = 16;
+    const HIT_STOP_CAP_MS = 24;
     const PREVIEW_AMOUNT_PRECISION = 2;
     const MAX_PREVIEW_LOGS = 8;
     const FEEL_EVAL_SHOT_INTERVAL = 4;
@@ -52,13 +57,15 @@
     const PHASE25_PANEL_HEIGHT = 164;
     const PHASE25_PANEL_MARGIN = 14;
     const FEEL_TARGETS = { maxP95InputLatencyMs: 130, maxCadenceErrorRatio: 0.2, expectedCadenceMs: 1000 / 1.5, minSamples: 8 };
+    const ITEM_TOOLTIP_RANGE = 110;
+    const ITEM_PICKUP_RANGE = 38;
 
     const keys = new Set(), pressed = new Set();
     addEventListener("keydown", (e) => {
       if (!keys.has(e.code)) pressed.add(e.code);
       keys.add(e.code);
       queueShotIntent(e.code, performance.now());
-      if (["Tab","F3","F4","F5","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
+      if (["Tab","F2","F3","F4","F5","F6","F7","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD","KeyE"].includes(e.code)) e.preventDefault();
       initAudio();
     });
     addEventListener("keyup", (e) => keys.delete(e.code));
@@ -80,20 +87,15 @@
     function sfxPickup(){ [220,262,330].forEach((f,i)=>setTimeout(()=>blip(f,0.11,"triangle",0.06), i*75)); }
     function sfxBoss(){ blip(70,0.8,"sawtooth",0.08); }
 
-    const itemPool = [
-      { name: "UNHOLY WATER", corruption: 5, apply: p => p.pierce = true },
-      { name: "GOAT'S EYE", corruption: 10, apply: p => p.damage += 1 },
-      { name: "THE ROPE", corruption: 0, apply: p => p.extraLife += 1 },
-      { name: "MARROW CANDLE", corruption: 5, apply: p => p.tears += 0.5 },
-      { name: "FLAYED SKIN", corruption: 15, apply: p => p.damageReduction = 0.25 },
-      { name: "BLACKENED TONGUE", corruption: 10, apply: p => p.slow = true },
-      { name: "SAINT'S ASH", corruption: 0, apply: p => { p.maxSoul += 2; p.soul += 2; } },
-      { name: "INVERTED CROSS", corruption: 25, apply: p => { p.damage += 1; p.soul = Math.max(1, p.soul - 1); } },
-    ];
+    // Item pool now driven by VesselGameplay.ITEM_DEFINITIONS (src/gameplay/itemSystem.js)
+    // Deterministic RNG for item offerings per dungeon
+    let _itemRng = null;
+    function resetItemRng(seed) { _itemRng = VesselGameplay.generateItemOffering ? (function(){ const s = (seed>>>0)||1; let st=s; return function(){ st=(1664525*st+1013904223)>>>0; return st/4294967296; }; })() : null; }
+    const _runHistory = VesselGameplay.createRunHistory();
 
     function randomOf(a){ return a[(Math.random()*a.length)|0]; }
     function makePlayer() {
-      return { x: W/2, y: H/2, vx: 0, vy: 0, accel: MOVE_TUNING.accel, friction: MOVE_TUNING.friction, r: 11, soul: 6, maxSoul: 6, corruption: 0, tears: 1.5, damage: 1, speed: 180, range: 400, shotSpeed: 320, damageReduction: 0, inv: 0, fireCd: 0, items: [], extraLife: 0, pierce: false, slow: false };
+      return { x: W/2, y: H/2, vx: 0, vy: 0, accel: MOVE_TUNING.accel, friction: MOVE_TUNING.friction, r: 11, soul: 6, maxSoul: 6, corruption: 0, tears: 1.5, damage: 1, speed: 180, range: 400, shotSpeed: 320, damageReduction: 0, inv: 0, fireCd: 0, items: [], itemIds: [], extraLife: 0, pierce: false, slow: false, activeSynergies: [] };
     }
 
     function createObservedStateTracker() {
@@ -113,7 +115,9 @@
       state: "title", floor: 0, dungeon: null, room: null, player: null, shots: [], enemyShots: [],
       msg: "", msgT: 0, mapOpen: false, flash: 0, shake: 0, endingTitle: "", endingLine: "",
       hitStop: 0, shotIntent: null, feelMetrics: VesselGameplay.createFeelMetrics(), feelFailures: [],
-      phase2Preview: null, phase25Visuals: { enabled: true, checklist: false, observed: createObservedStateTracker() }
+      phase2Preview: null, phase25Visuals: { enabled: true, checklist: false, observed: createObservedStateTracker() },
+      activeBoss: null, bossPhaseFlash: 0, bossReplaySession: null, bossInputLocked: false, bossDebugOverlay: false, itemDebugOverlay: false, showDebugHUD: true,
+      nearbyItem: null, descentPortal: null, bossDropPending: false
     };
 
     function behaviorColor(behavior) {
@@ -188,9 +192,23 @@
     }
     function firePlayerShot(intent, nowMs) {
       const p = G.player;
-      p.fireCd = 1 / p.tears; sfxFire();
-      G.shots.push({x:p.x,y:p.y,vx:intent.sx*p.shotSpeed,vy:intent.sy*p.shotSpeed,life:p.range/p.shotSpeed,damage:p.damage,pierce:p.pierce,slow:p.slow,color:tearColor()});
-      VesselGameplay.recordShot(G.feelMetrics, nowMs, intent.at, 1000 / p.tears);
+      // Corruption scaling for corruption-tech items
+      const corrBonus = VesselGameplay.resolveCorruptionScaling(p);
+      const effectiveDmg = p.damage + corrBonus.damage;
+      const effectiveTears = p.tears + corrBonus.tears;
+      p.fireCd = 1 / effectiveTears; sfxFire();
+      const baseShot = {x:p.x,y:p.y,vx:intent.sx*p.shotSpeed,vy:intent.sy*p.shotSpeed,life:p.range/p.shotSpeed,damage:effectiveDmg,pierce:p.pierce,slow:p.slow,homing:p.homing,dot:p.dot||0,chain:p.chain||0,color:tearColor()};
+      G.shots.push(baseShot);
+      // Split: spawn extra angled projectiles
+      if (p.split > 0) {
+        for (let si = 1; si <= p.split; si++) {
+          const spreadAngle = (si * 0.22);
+          const cosA = Math.cos(spreadAngle), sinA = Math.sin(spreadAngle);
+          G.shots.push({x:p.x,y:p.y,vx:baseShot.vx*cosA - baseShot.vy*sinA,vy:baseShot.vx*sinA + baseShot.vy*cosA,life:baseShot.life*0.8,damage:effectiveDmg*0.6,pierce:p.pierce,slow:p.slow,homing:p.homing,dot:p.dot||0,chain:p.chain||0,color:tearColor()});
+          G.shots.push({x:p.x,y:p.y,vx:baseShot.vx*cosA + baseShot.vy*sinA,vy:-baseShot.vx*sinA + baseShot.vy*cosA,life:baseShot.life*0.8,damage:effectiveDmg*0.6,pierce:p.pierce,slow:p.slow,homing:p.homing,dot:p.dot||0,chain:p.chain||0,color:tearColor()});
+        }
+      }
+      VesselGameplay.recordShot(G.feelMetrics, nowMs, intent.at, 1000 / effectiveTears);
       if ((G.feelMetrics.shotLatenciesMs.length % FEEL_EVAL_SHOT_INTERVAL) === 0) {
         const summary = VesselGameplay.summarizeFeel(G.feelMetrics);
         G.feelFailures = VesselGameplay.evaluateFeel(summary, FEEL_TARGETS);
@@ -242,6 +260,7 @@
       return {grid, rooms, start};
     }
 
+    let _enemyUid = 0;
     function spawnEnemy(type, x, y) {
       const stat = {
         penitent:[2,60,0.5,"#89272d"], hollowed:[3,75,1,"#c7b39e"], wisp:[2,0,0.5,"#805ca0"],
@@ -249,7 +268,7 @@
         seraph:[5,85,1,"#ca8054"], choir:[3,65,1,"#8d5ca8"], tendril:[8,0,2,"#120814"],
         shepherd:[36,64,1,"#6a3a2b"], pit:[58,88,1.5,"#170812"]
       }[type];
-      return { type, x, y, r: (type==="shepherd"||type==="pit")?36:(type==="tendril"?22:14), hp: stat[0], maxHp: stat[0], speed: stat[1], damage: stat[2], color: stat[3], cd: Math.random()*1.5, phase: 1, slowT: 0, hitT: 0, spawnT: 0.6, split:false, delay:[] };
+      return { type, x, y, _uid: ++_enemyUid, r: (type==="shepherd"||type==="pit")?36:(type==="tendril"?22:14), hp: stat[0], maxHp: stat[0], speed: stat[1], damage: stat[2], color: stat[3], cd: Math.random()*1.5, phase: 1, slowT: 0, hitT: 0, spawnT: 0.6, split:false, delay:[] };
     }
     function enemyTypeForFloor() {
       if (G.floor===0) return randomOf(["penitent","hollowed","wisp"]);
@@ -263,23 +282,100 @@
       if (!G.room.spawned) {
         G.room.spawned = true;
         if (G.room.type==="combat") for (let i=0;i<2+G.floor;i++) G.room.enemies.push(spawnEnemy(enemyTypeForFloor(), ROOM_X+130+Math.random()*(ROOM_PX_W-260), ROOM_Y+120+Math.random()*(ROOM_PX_H-240)));
-        if (G.room.type==="boss") { G.room.enemies.push(spawnEnemy(G.floor===3?"pit":"shepherd",W/2,H/2-40)); sfxBoss(); }
-        if (G.room.type==="altar") {
-          const a = randomOf(itemPool), b = randomOf(itemPool.filter(i=>i!==a));
-          G.room.pickups = [{x:W/2-90,y:H/2,item:a,spawnT:0.5},{x:W/2+90,y:H/2,item:b,spawnT:0.5}];
+        if (G.room.type==="boss") {
+          const bossType = G.floor===3?"pit":G.floor===2?"choir":"shepherd";
+          const def = VesselGameplay.BOSS_DEFINITIONS[bossType];
+          if (def) {
+            const boss = VesselGameplay.createBossState(def, W/2, H/2-40, G.floor*1000+7);
+            G.activeBoss = boss;
+            G.bossInputLocked = boss.inputLocked;
+            G.bossPhaseFlash = 0;
+            G.room.enemies.push(boss);
+            if (VesselGameplay.createBossReplaySession) {
+              G.bossReplaySession = VesselGameplay.createBossReplaySession(bossType, G.floor*1000+7, {x:G.player.x,y:G.player.y,r:G.player.r});
+            }
+          } else {
+            G.room.enemies.push(spawnEnemy(bossType,W/2,H/2-40));
+          }
+          sfxBoss();
         }
-        if (G.room.type==="reliquary") G.room.pickups = [{x:ROOM_X+ROOM_PX_W-110,y:H/2,item:randomOf(itemPool),hidden:true,spawnT:0.5}];
+        if (G.room.type==="altar") {
+          const offered = VesselGameplay.generateItemOffering(_itemRng, G.player.itemIds, 2);
+          VesselGameplay.trackOffer(_runHistory, offered);
+          G.room.pickups = offered.map((id, i) => {
+            const def = VesselGameplay.getItemDef(id);
+            return { x: W/2 - 90 + i * 180, y: H/2, itemId: id, item: def, spawnT: 0.5 };
+          });
+        }
+        if (G.room.type==="reliquary") {
+          const relCount = G.player.extraPickup ? 2 : 1;
+          const offered = VesselGameplay.generateItemOffering(_itemRng, G.player.itemIds, relCount);
+          VesselGameplay.trackOffer(_runHistory, offered);
+          G.room.pickups = offered.map((id, i) => {
+            const def = VesselGameplay.getItemDef(id);
+            return { x: ROOM_X+ROOM_PX_W-110, y: H/2 - 40 + i * 80, itemId: id, item: def, hidden: true, spawnT: 0.5 };
+          });
+        }
       }
     }
     function roomLocked(){ return !G.room.cleared && (G.room.type==="combat"||G.room.type==="boss"); }
     function setMsg(text, t=2){ G.msg = text; G.msgT = t; }
-    function applyItem(item){
-      G.player.items.push(item.name); item.apply(G.player);
-      G.player.corruption = Math.min(100, G.player.corruption + item.corruption);
+    function applyItemById(itemId) {
+      const def = VesselGameplay.getItemDef(itemId);
+      if (!def) return;
+      G.player.itemIds.push(itemId);
+      G.player.items.push(def.name);
+      VesselGameplay.applyItemEffects(G.player, itemId);
+      VesselGameplay.trackPick(_runHistory, itemId);
+      // Resolve synergies after each pickup
+      G.player.activeSynergies = VesselGameplay.resolveActiveSynergies(G.player.itemIds);
+      // Re-apply synergy bonuses (recalculate from scratch for consistency)
+      recalcSynergyBonuses();
+      setMsg(def.name, 2.5); sfxPickup();
+      // Show synergy notification if new synergy activated
+      if (G.player.activeSynergies.length > 0) {
+        const newest = G.player.activeSynergies[G.player.activeSynergies.length - 1];
+        setTimeout(function(){ setMsg("SYNERGY: " + newest.name, 2); }, 800);
+      }
+    }
+    function recalcSynergyBonuses() {
+      // Reset synergy-contributed stats by re-applying all items from base
+      const p = G.player;
+      const basePlayer = makePlayer();
+      // Preserve non-stat state
+      const keep = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, inv: p.inv, fireCd: p.fireCd, items: p.items, itemIds: p.itemIds, activeSynergies: p.activeSynergies };
+      // Reset stats to base
+      p.soul = basePlayer.soul; p.maxSoul = basePlayer.maxSoul; p.corruption = basePlayer.corruption;
+      p.damage = basePlayer.damage; p.tears = basePlayer.tears; p.speed = basePlayer.speed;
+      p.range = basePlayer.range; p.shotSpeed = basePlayer.shotSpeed; p.damageReduction = basePlayer.damageReduction;
+      p.extraLife = basePlayer.extraLife; p.pierce = basePlayer.pierce; p.slow = basePlayer.slow;
+      p.homing = false; p.mapReveal = false; p.extraPickup = false;
+      p.split = 0; p.chain = 0; p.dot = 0; p.aura = 0; p.siphon = 0; p.soulOnClear = 0;
+      p.corruptionDamageScale = false; p.corruptionTearBonus = false;
+      // Re-apply all held items
+      for (let i = 0; i < p.itemIds.length; i++) VesselGameplay.applyItemEffects(p, p.itemIds[i]);
+      // Apply synergy bonuses
+      VesselGameplay.applySynergyBonuses(p, p.activeSynergies);
+      // Restore non-stat state
+      Object.assign(p, keep);
+      // Clamp soul to maxSoul
+      p.soul = Math.min(p.soul, p.maxSoul);
+    }
+    // Legacy wrapper for boss drops that use item IDs
+    function applyItem(item) {
+      if (item.itemId) { applyItemById(item.itemId); return; }
+      // Fallback for any remaining legacy items
+      G.player.items.push(item.name);
+      if (item.apply) item.apply(G.player);
+      G.player.corruption = Math.min(100, G.player.corruption + (item.corruption || 0));
       setMsg(item.name, 2.5); sfxPickup();
     }
     function startRun() {
       G.floor = 0; G.player = makePlayer();
+      G.descentPortal = null; G.bossDropPending = false; G.nearbyItem = null;
+      const runSeed = (Date.now() & 0x7FFFFFFF) || 1;
+      resetItemRng(runSeed);
+      VesselGameplay.startRunTracking(_runHistory, runSeed);
       G.phase25Visuals.observed = createObservedStateTracker();
       ensurePhase2Preview();
       loadFloor(true);
@@ -290,6 +386,7 @@
       G.dungeon = createDungeon(G.floor);
       G.room = G.dungeon.grid[G.dungeon.start.y][G.dungeon.start.x];
       G.player.x = W/2; G.player.y = H/2;
+      G.descentPortal = null; G.bossDropPending = false; G.nearbyItem = null;
       enterRoom();
       if (!first) setMsg(FLOOR_NAMES[G.floor].toUpperCase(), 2);
     }
@@ -317,19 +414,37 @@
       p.inv = 1; p.soul -= d*(1-p.damageReduction); G.flash = 0.8; G.shake = 0.8; sfxDamage();
       if (p.soul<=0) {
         if (p.extraLife>0) { p.extraLife--; p.soul = 1; setMsg("THE ROPE TIGHTENS",2); }
-        else G.state = "dead";
+        else { VesselGameplay.endRunTracking(_runHistory, G.player, "dead"); G.state = "dead"; }
       }
     }
 
     function updatePlaying(dt){
       const p = G.player;
       if (pressed.has("Tab")) G.mapOpen = !G.mapOpen;
+      if (pressed.has("F2")) G.showDebugHUD = !G.showDebugHUD;
       if (pressed.has("F3")) { ensurePhase2Preview(); if (G.phase2Preview) G.phase2Preview.enabled = !G.phase2Preview.enabled; }
       if (pressed.has("F4")) G.phase25Visuals.enabled = !G.phase25Visuals.enabled;
       if (pressed.has("F5")) G.phase25Visuals.checklist = !G.phase25Visuals.checklist;
+      if (pressed.has("F6")) G.bossDebugOverlay = !G.bossDebugOverlay;
+      if (pressed.has("F7")) G.itemDebugOverlay = !G.itemDebugOverlay;
+      G._hitStopThisFrame = 0;
       // Hit-stop deliberately freezes gameplay updates for a short readability pulse.
       // This includes player timers (invulnerability/fire cooldown) for a true micro-freeze.
-      if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); return; }
+      if (G.hitStop > 0) { G.hitStop = Math.max(0, G.hitStop - dt); G._hitStopThisFrame = 0; return; }
+      // Boss input lock (intro/outro cinematics)
+      if (G.bossInputLocked) {
+        // Still update boss during input lock
+        if (G.activeBoss && !G.activeBoss.dead) {
+          const bossCtx = { dtMs: dt * 1000, target: { x: p.x, y: p.y }, roomBounds: { x: ROOM_X+TILE, y: ROOM_Y+TILE, w: ROOM_PX_W-TILE*2, h: ROOM_PX_H-TILE*2 } };
+          const bossEvents = VesselGameplay.updateBoss(G.activeBoss, bossCtx);
+          G.bossInputLocked = G.activeBoss.inputLocked;
+          for (const ev of bossEvents) {
+            if (ev.type === "intro_end" || ev.type === "outro_end") G.bossInputLocked = false;
+            if (ev.type === "outro_end") { G.activeBoss.hp = 0; G.activeBoss.health = 0; }
+          }
+        } else { G.bossInputLocked = false; }
+        return;
+      }
       p.inv = Math.max(0,p.inv-dt); p.fireCd -= dt;
       let mx=(keys.has("KeyD")?1:0)-(keys.has("KeyA")?1:0), my=(keys.has("KeyS")?1:0)-(keys.has("KeyW")?1:0);
       const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml;
@@ -340,17 +455,24 @@
       if (speed > p.speed) { p.vx = (p.vx / speed) * p.speed; p.vy = (p.vy / speed) * p.speed; }
       p.x += p.vx * dt; p.y += p.vy * dt;
       const l=ROOM_X+TILE, r=ROOM_X+ROOM_PX_W-TILE, t=ROOM_Y+TILE, b=ROOM_Y+ROOM_PX_H-TILE;
-      if (p.x<l){ if(G.room.doors.l&&Math.abs(p.y-H/2)<70&&p.x<ROOM_X+8) transition("l"); p.x=l; }
-      if (p.x>r){ if(G.room.doors.r&&Math.abs(p.y-H/2)<70&&p.x>ROOM_X+ROOM_PX_W-8) transition("r"); p.x=r; }
-      if (p.y<t){ if(G.room.doors.u&&Math.abs(p.x-W/2)<70&&p.y<ROOM_Y+8) transition("u"); p.y=t; }
-      if (p.y>b){ if(G.room.doors.d&&Math.abs(p.x-W/2)<70&&p.y>ROOM_Y+ROOM_PX_H-8) transition("d"); p.y=b; }
+      if (p.x<l){ if(G.room.doors.l&&Math.abs(p.y-H/2)<70&&!roomLocked()) transition("l"); else p.x=l; }
+      if (p.x>r){ if(G.room.doors.r&&Math.abs(p.y-H/2)<70&&!roomLocked()) transition("r"); else p.x=r; }
+      if (p.y<t){ if(G.room.doors.u&&Math.abs(p.x-W/2)<70&&!roomLocked()) transition("u"); else p.y=t; }
+      if (p.y>b){ if(G.room.doors.d&&Math.abs(p.x-W/2)<70&&!roomLocked()) transition("d"); else p.y=b; }
       const nowMs = performance.now();
       readHeldAim(nowMs);
       if (G.shotIntent && (nowMs - G.shotIntent.at) > SHOT_INTENT_GRACE_MS) G.shotIntent = null;
       if (G.shotIntent && p.fireCd<=0) firePlayerShot(G.shotIntent, nowMs);
 
       for (const arr of [G.shots,G.enemyShots]) for (let i=arr.length-1;i>=0;i--) {
-        const s=arr[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; s.life-=dt;
+        const s=arr[i];
+        // Homing: steer player shots toward nearest living enemy
+        if (s.homing && arr === G.shots) {
+          let closest = null, closestD = Infinity;
+          for (const e of G.room.enemies) if (e.hp > 0) { const ed = Math.hypot(e.x - s.x, e.y - s.y); if (ed < closestD) { closestD = ed; closest = e; } }
+          if (closest) { const spd = Math.hypot(s.vx, s.vy) || 1, tx = closest.x - s.x, ty = closest.y - s.y, td = Math.hypot(tx, ty) || 1; const steer = 3.5 * dt; s.vx += (tx / td * spd - s.vx) * steer; s.vy += (ty / td * spd - s.vy) * steer; const ns = Math.hypot(s.vx, s.vy) || 1; s.vx = s.vx / ns * spd; s.vy = s.vy / ns * spd; }
+        }
+        s.x+=s.vx*dt; s.y+=s.vy*dt; s.life-=dt;
         if (s.x<l||s.x>r||s.y<t||s.y>b||s.life<=0) arr.splice(i,1);
       }
       for (const pck of G.room.pickups) pck.spawnT = Math.max(0, pck.spawnT - dt);
@@ -359,18 +481,99 @@
       for (let i=G.shots.length-1;i>=0;i--) {
         const s=G.shots[i];
         for (const e of G.room.enemies) if (e.hp>0 && Math.hypot(s.x-e.x,s.y-e.y)<e.r+5) {
-          e.hp-=s.damage; if (s.slow) e.slowT=0.7; e.hitT = 0.24; sfxHit();
-          G.hitStop = Math.max(G.hitStop, HIT_STOP_MS / 1000);
+          const isBoss = e === G.activeBoss;
+          if (isBoss && VesselGameplay.damageBoss) { VesselGameplay.damageBoss(e, s.damage); }
+          else { e.hp-=s.damage; }
+          if (s.slow) e.slowT=0.7;
+          if (s.dot) { e.dotDps = (e.dotDps || 0) + s.dot; e.dotT = 3; }
+          e.hitT = 0.24; sfxHit();
+          const hitStopAdd = HIT_STOP_MS / 1000;
+          if ((G._hitStopThisFrame || 0) < HIT_STOP_CAP_MS / 1000) {
+            G.hitStop = Math.min(G.hitStop + hitStopAdd, HIT_STOP_CAP_MS / 1000);
+            G._hitStopThisFrame = (G._hitStopThisFrame || 0) + hitStopAdd;
+          }
           VesselGameplay.recordHitstop(G.feelMetrics, HIT_STOP_MS);
-          if (e.hp <= 0) observePhase25State((e.type==="shepherd"||e.type==="pit") ? "boss" : "enemy", "death");
+          if (e.hp <= 0) {
+            observePhase25State(isBoss ? "boss" : "enemy", "death");
+            // Siphon: heal on kill
+            if (G.player.siphon && !isBoss) { G.player.soul = Math.min(G.player.maxSoul, G.player.soul + G.player.siphon); }
+          }
+          // Chain: bounce shot to nearest other enemy
+          if (s.chain > 0 && !s.pierce) {
+            let chainTarget = null, chainDist = Infinity;
+            for (const ce of G.room.enemies) { if (ce !== e && ce.hp > 0) { const cd = Math.hypot(ce.x - e.x, ce.y - e.y); if (cd < chainDist) { chainDist = cd; chainTarget = ce; } } }
+            if (chainTarget) { const cd = Math.hypot(chainTarget.x - e.x, chainTarget.y - e.y) || 1; G.shots.push({x:e.x,y:e.y,vx:(chainTarget.x-e.x)/cd*G.player.shotSpeed,vy:(chainTarget.y-e.y)/cd*G.player.shotSpeed,life:chainDist/G.player.shotSpeed+0.3,damage:s.damage*0.7,pierce:false,slow:s.slow,homing:false,dot:s.dot,chain:s.chain-1,color:"#c9a030"}); }
+          }
           if (!s.pierce) { G.shots.splice(i,1); break; }
         }
       }
 
       const es = G.room.enemies;
+      // --- Boss state machine update ---
+      if (G.activeBoss && G.activeBoss.hp > 0 && VesselGameplay.updateBoss) {
+        const boss = G.activeBoss;
+        const bossCtx = { dtMs: dt * 1000, target: { x: p.x, y: p.y }, roomBounds: { x: l, y: t, w: r - l, h: b - t } };
+        const bossEvents = VesselGameplay.updateBoss(boss, bossCtx);
+        G.bossInputLocked = boss.inputLocked;
+        // Clamp boss position
+        boss.x = Math.max(l + boss.r, Math.min(r - boss.r, boss.x));
+        boss.y = Math.max(t + boss.r, Math.min(b - boss.r, boss.y));
+        // Record replay inputs
+        if (G.bossReplaySession && VesselGameplay.recordReplayInput) {
+          VesselGameplay.recordReplayInput(G.bossReplaySession, G.bossReplaySession.tickCount || 0, { x: p.x, y: p.y });
+          G.bossReplaySession.tickCount = (G.bossReplaySession.tickCount || 0) + 1;
+        }
+        // Process boss events
+        let prevPhase = null;
+        for (const ev of bossEvents) {
+          if (ev.type === "phase_enter") { G.bossPhaseFlash = 0.4; prevPhase = ev.phaseId; }
+          if (ev.type === "summon") {
+            for (let i = 0; i < (ev.count || 1); i++) {
+              const ang = Math.random() * Math.PI * 2;
+              const dist = boss.r + 30 + Math.random() * 40;
+              es.push(spawnEnemy(ev.summonType || "penitent", boss.x + Math.cos(ang) * dist, boss.y + Math.sin(ang) * dist));
+            }
+          }
+          if (ev.type === "projectile") {
+            G.enemyShots.push({
+              x: ev.x != null ? ev.x : boss.x, y: ev.y != null ? ev.y : boss.y,
+              vx: ev.direction.x * (ev.speed || 170), vy: ev.direction.y * (ev.speed || 170),
+              life: 2, color: ev.color || tearColor(), damage: ev.amount || 1
+            });
+          }
+          if (ev.type === "outro_end") { boss.hp = 0; boss.health = 0; }
+        }
+        // Hazard collision with player
+        if (VesselGameplay.checkHazardCollision) {
+          for (const h of boss.activeHazards) {
+            const result = VesselGameplay.checkHazardCollision(h, p);
+            if (result.hit && result.damage > 0) damagePlayer(result.damage * dt);
+          }
+        }
+        // Contact damage
+        if (Math.hypot(boss.x - p.x, boss.y - p.y) < boss.r + p.r) damagePlayer(boss.damage);
+        // Boss dot (burn) tick
+        if (boss.dotT > 0) {
+          const dotDmg = (boss.dotDps || 0) * dt;
+          if (VesselGameplay.damageBoss) VesselGameplay.damageBoss(boss, dotDmg); else boss.hp -= dotDmg;
+          boss.dotT -= dt; if (boss.dotT <= 0) { boss.dotT = 0; boss.dotDps = 0; }
+        }
+        // Boss aura tick
+        if (p.aura && Math.hypot(boss.x - p.x, boss.y - p.y) < 80) {
+          const auraDmg = p.aura * dt;
+          if (VesselGameplay.damageBoss) VesselGameplay.damageBoss(boss, auraDmg); else boss.hp -= auraDmg;
+        }
+        if (G.bossPhaseFlash > 0) G.bossPhaseFlash = Math.max(0, G.bossPhaseFlash - dt);
+      }
+      // --- Regular enemy update ---
       for (const e of es) {
+        if (e === G.activeBoss) continue;
         if (e.hp<=0) continue;
         e.cd -= dt; e.slowT = Math.max(0,e.slowT-dt); e.hitT = Math.max(0,e.hitT-dt); e.spawnT = Math.max(0,e.spawnT-dt);
+        // Dot (burn) tick
+        if (e.dotT > 0) { e.hp -= (e.dotDps || 0) * dt; e.dotT -= dt; if (e.dotT <= 0) { e.dotT = 0; e.dotDps = 0; } }
+        // Aura: proximity damage from player
+        if (p.aura && Math.hypot(e.x - p.x, e.y - p.y) < 80) { e.hp -= p.aura * dt; e.hitT = Math.max(e.hitT, 0.1); }
         const sp = e.speed*(e.slowT?0.5:1), dx=p.x-e.x, dy=p.y-e.y, d=Math.hypot(dx,dy)||1;
         if (["penitent","bonecrawler","plague","choir"].includes(e.type)) {
           const z = e.type==="bonecrawler" ? Math.sin(performance.now()*0.01 + e.x*0.01)*0.8 : 0;
@@ -384,50 +587,70 @@
           if (e.cd<=0) { e.cd=e.type==="seraph"?0.9:1.2; G.enemyShots.push({x:e.x,y:e.y,vx:(dx/d)*180,vy:(dy/d)*180,life:2.5,color:"#a33",damage:e.damage}); }
         } else if (e.type==="tendril") {
           if (e.cd<=0 && d<68) { damagePlayer(e.damage); e.cd=1.2; }
-        } else if (e.type==="shepherd") {
-          if (e.hp<e.maxHp/2) e.phase=2;
-          e.x += (dx/d)*sp*(e.phase===2?1.5:1)*dt; e.y += (dy/d)*sp*(e.phase===2?1.5:1)*dt;
-          if (e.cd<=0) {
-            e.cd = 1.7;
-            if (e.phase===1) for (let i=0;i<2;i++) es.push(spawnEnemy("penitent",e.x+Math.random()*60-30,e.y+Math.random()*60-30));
-            else for (let i=0;i<8;i++) { const a=i*Math.PI/4; G.enemyShots.push({x:e.x,y:e.y,vx:Math.cos(a)*170,vy:Math.sin(a)*170,life:2,color:"#912",damage:0.8}); }
-          }
-        } else if (e.type==="pit") {
-          if (e.hp<e.maxHp*0.66) e.phase=2; if (e.hp<e.maxHp*0.33) e.phase=3;
-          e.delay.push({x:p.x,y:p.y}); if (e.delay.length>20) { const m=e.delay.shift(); e.x += (m.x-e.x)*0.08; e.y += (m.y-e.y)*0.08; }
-          if (e.cd<=0) { e.cd=e.phase===1?1.3:0.75; G.enemyShots.push({x:e.x,y:e.y,vx:(dx/d)*210,vy:(dy/d)*210,life:2,color:tearColor(),damage:1}); }
-          if (e.phase===3) { p.x=Math.min(Math.max(p.x,ROOM_X+TILE*2),ROOM_X+ROOM_PX_W-TILE*2); p.y=Math.min(Math.max(p.y,ROOM_Y+TILE*2),ROOM_Y+ROOM_PX_H-TILE*2); }
         }
         e.x=Math.max(l+e.r,Math.min(r-e.r,e.x)); e.y=Math.max(t+e.r,Math.min(b-e.r,e.y));
         if (!["wisp","seraph"].includes(e.type) && Math.hypot(e.x-p.x,e.y-p.y)<e.r+p.r) damagePlayer(e.damage);
         if (e.hp<=0 && e.type==="plague" && !e.split) { e.split=true; for (let k=0;k<3;k++) es.push(spawnEnemy("penitent",e.x+Math.random()*40-20,e.y+Math.random()*40-20)); }
       }
 
-      if (!G.room.cleared && G.room.enemies.length && G.room.enemies.every(e=>e.hp<=0)) {
+      // --- Room clear check (boss uses dead flag or hp<=0) ---
+      if (!G.room.cleared && G.room.enemies.length && G.room.enemies.every(e => e.hp <= 0 || (e === G.activeBoss && (e.dead || e.hp <= 0)))) {
         G.room.cleared = true; sfxUnlock(); setMsg("ROOM PURGED",1.5);
+        // Soul on clear from economy items
+        if (G.player.soulOnClear) { G.player.soul = Math.min(G.player.maxSoul, G.player.soul + G.player.soulOnClear); }
         if (G.room.type==="boss") {
+          G.activeBoss = null; G.bossReplaySession = null;
           if (G.floor===3) {
             const c=p.corruption; G.state="ending";
             G.endingTitle = c<50 ? "ENDING A — EXORCISM" : "ENDING B — SACRIFICE";
             G.endingLine = c<50 ? "You cast it out. You are empty now. That might be okay." : "You won. The vessel remains. Something wears it home.";
           } else {
-            if (G.floor===0) applyItem({name:"SHEPHERD'S BRAND",corruption:8,apply:pl=>pl.homing=true});
-            if (G.floor===1) applyItem({name:"SAINT'S MARROW",corruption:10,apply:pl=>pl.damage+=1});
-            if (G.floor===2) applyItem({name:"TESTAMENT",corruption:5,apply:pl=>{pl.tears+=0.5;pl.mapReveal=true;}});
-            G.floor++; loadFloor();
+            const dropId = G.floor===0 ? "shepherds_brand" : G.floor===1 ? "saints_marrow" : "testament";
+            const def = VesselGameplay.getItemDef(dropId);
+            G.room.pickups = [{ x: W/2, y: H/2, itemId: dropId, item: def, spawnT: 0.5, bossDrop: true }];
+            G.bossDropPending = true;
+            setMsg("SOMETHING REMAINS", 2.5);
           }
         }
       }
 
+      // --- Walk-over item pickup (proximity-based) ---
+      G.nearbyItem = null;
+      for (const pck of G.room.pickups) {
+        if (pck.taken || pck.hidden) continue;
+        const dist = Math.hypot(p.x - pck.x, p.y - pck.y);
+        if (dist < ITEM_TOOLTIP_RANGE) G.nearbyItem = pck;
+        if (dist < ITEM_PICKUP_RANGE) {
+          observePhase25State("item", "pickup");
+          applyItemById(pck.itemId);
+          pck.taken = true;
+          if (G.room.type === "altar") {
+            G.player.soul = Math.max(1, G.player.soul - 0.5);
+            for (const other of G.room.pickups) if (other !== pck) other.taken = true;
+          }
+          if (pck.bossDrop) {
+            G.bossDropPending = false;
+            G.descentPortal = { x: W/2, y: H/2 + 70, spawnT: 0.6 };
+            setMsg("A PASSAGE OPENS BELOW", 3);
+          }
+          break;
+        }
+      }
+      // Reliquary reveal on proximity
+      if (G.room.type === "reliquary") {
+        for (const rp of G.room.pickups) {
+          if (rp.hidden && !rp.taken && p.x > ROOM_X + ROOM_PX_W - TILE * 2.5 && Math.abs(p.y - rp.y) < 64) rp.hidden = false;
+        }
+      }
+      // Descent portal (after boss drop pickup)
+      if (G.descentPortal) {
+        G.descentPortal.spawnT = Math.max(0, G.descentPortal.spawnT - dt);
+        if (G.descentPortal.spawnT <= 0 && Math.hypot(p.x - G.descentPortal.x, p.y - G.descentPortal.y) < 36) {
+          G.descentPortal = null;
+          G.floor++; loadFloor();
+        }
+      }
       if (pressed.has("KeyE")) {
-        if (G.room.type==="altar") {
-          for (const pck of G.room.pickups) if (Math.hypot(p.x-pck.x,p.y-pck.y)<46) { observePhase25State("item", "pickup"); applyItem(pck.item); G.player.soul=Math.max(1,G.player.soul-0.5); G.room.pickups=[]; break; }
-        }
-        if (G.room.type==="reliquary" && G.room.pickups[0]) {
-          const pck=G.room.pickups[0], reveal = p.x>ROOM_X+ROOM_PX_W-TILE*2.5 && Math.abs(p.y-H/2)<64;
-          if (reveal) pck.hidden=false;
-          if (!pck.hidden && Math.hypot(p.x-pck.x,p.y-pck.y)<46) { observePhase25State("item", "pickup"); applyItem(pck.item); G.room.pickups=[]; }
-        }
         if (G.room.type==="confession" && !G.room.choiceDone) {
           if (p.x < W/2) { p.damage += 1; p.soul = Math.max(1,p.soul-1); }
           else { p.maxSoul += 2; p.soul += 2; p.corruption = Math.min(100,p.corruption+15); }
@@ -439,6 +662,7 @@
         G.state = "ending";
         G.endingTitle = "ENDING C — CONSUMED";
         G.endingLine = "There was no player. There was only ever the vessel.";
+        VesselGameplay.endRunTracking(_runHistory, G.player, "consumed");
       }
       updatePhase2Preview(dt);
     }
@@ -470,31 +694,63 @@
       if (G.room.doors.d) d(W/2-56,ROOM_Y+ROOM_PX_H-TILE,112,TILE);
       if (G.room.doors.l) d(ROOM_X,H/2-56,TILE,112);
       if (G.room.doors.r) d(ROOM_X+ROOM_PX_W-TILE,H/2-56,TILE,112);
+      // Door room-type indicators (show what's on the other side)
+      if (!roomLocked()) {
+        const doorTypeColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050", combat:"#5a3a48", start:"#5a3a48" };
+        const doorTypeLabels = { boss:"BOSS", altar:"ALTAR", confession:"???", reliquary:"RELIQUARY" };
+        const drawDoorLabel = (x, y, type, visited) => {
+          if (!visited && !G.player.mapReveal) return;
+          const lbl = doorTypeLabels[type];
+          if (!lbl) return;
+          ctx.fillStyle = doorTypeColors[type] || "#5a3a48"; ctx.font = "9px monospace";
+          ctx.fillText(lbl, x - ctx.measureText(lbl).width / 2, y);
+        };
+        if (G.room.doors.u) { const nr = G.dungeon.grid[G.room.y-1]?.[G.room.x]; if (nr) drawDoorLabel(W/2, ROOM_Y + TILE - 4, nr.type, nr.visited); }
+        if (G.room.doors.d) { const nr = G.dungeon.grid[G.room.y+1]?.[G.room.x]; if (nr) drawDoorLabel(W/2, ROOM_Y + ROOM_PX_H - 6, nr.type, nr.visited); }
+        if (G.room.doors.l) { const nr = G.dungeon.grid[G.room.y]?.[G.room.x-1]; if (nr) drawDoorLabel(ROOM_X + TILE/2, H/2 - 60, nr.type, nr.visited); }
+        if (G.room.doors.r) { const nr = G.dungeon.grid[G.room.y]?.[G.room.x+1]; if (nr) drawDoorLabel(ROOM_X + ROOM_PX_W - TILE/2, H/2 - 60, nr.type, nr.visited); }
+      }
     }
     function drawHUD() {
       const p = G.player;
-      ctx.fillStyle="#12000f"; ctx.fillRect(0,0,W,58); ctx.fillRect(0,H-56,W,56);
-      ctx.strokeStyle="#3a1328"; ctx.strokeRect(4,4,W-8,50); ctx.strokeRect(4,H-52,W-8,48);
+      ctx.fillStyle="#12000f"; ctx.fillRect(0,0,W,ROOM_Y); ctx.fillRect(0,ROOM_Y+ROOM_PX_H,W,H-ROOM_Y-ROOM_PX_H);
+      ctx.fillRect(0,0,ROOM_X,H); ctx.fillRect(ROOM_X+ROOM_PX_W,0,W-ROOM_X-ROOM_PX_W,H);
       ctx.fillStyle="#e6d8cc"; ctx.font="16px monospace";
       ctx.fillText("SOUL:",16,26);
       const pulse = 1 + Math.sin(performance.now()*0.008)*0.08;
-      for (let i=0;i<Math.ceil(p.maxSoul);i++) { const f=i+1<=p.soul; ctx.fillStyle=f?"#d54a58":"#3a1f24"; const z=f&&p.soul<=2?10*pulse:10; ctx.fillRect(72+i*15,18,z,z); }
-      ctx.fillStyle="#c9b65d"; ctx.fillText("VESSEL",W/2-30,26);
+      for (let i=0;i<Math.ceil(p.maxSoul);i++) {
+        const full=i+1<=p.soul, half=!full&&i<p.soul;
+        const z=(full||half)&&p.soul<=2?10*pulse:10;
+        ctx.fillStyle="#3a1f24"; ctx.fillRect(72+i*15,18,10,10);
+        if (full) { ctx.fillStyle="#d54a58"; ctx.fillRect(72+i*15,18,z,z); }
+        else if (half) { ctx.fillStyle="#d54a58"; ctx.fillRect(72+i*15,18,z/2,z); }
+      }
+      ctx.fillStyle="#c9b65d"; ctx.fillText("VESSEL",W/2-30,18);
       ctx.fillStyle="#e6d8cc"; ctx.fillText(`CORRUPTION: ${Math.round(p.corruption)}%`,W-248,18);
       ctx.fillStyle="#281118"; ctx.fillRect(W-248,26,180,12);
       ctx.fillStyle=p.corruption<50?"#b5a54a":p.corruption<75?"#9f3535":"#290b18"; ctx.fillRect(W-248,26,180*Math.min(1,p.corruption/100),12);
       ctx.fillStyle="#d8d0c2"; ctx.fillText(`ACTIVE: NONE`,16,H-28); ctx.fillText(`FLOOR: ${FLOOR_NAMES[G.floor]}`,W-225,H-28);
       ctx.fillText("ITEMS: "+(p.items.slice(-4).join(" | ")||"NONE"),16,H-10);
-      ctx.fillStyle = G.phase2Preview?.enabled ? "#d4be6c" : "#7e6a76";
-      ctx.fillText(`F3 PHASE2 PREVIEW ${G.phase2Preview?.enabled ? "ON" : "OFF"}`,W/2-98,26);
-      ctx.fillStyle = G.phase25Visuals.enabled ? "#8acb8a" : "#a98989";
-      ctx.fillText(`F4 VISUAL BASELINE ${G.phase25Visuals.enabled ? "ON" : "LEGACY"} / F5 CHECKLIST ${G.phase25Visuals.checklist ? "ON" : "OFF"}`,W/2-202,H-10);
-      const feelSummary = VesselGameplay.summarizeFeel(G.feelMetrics);
-      ctx.fillStyle = G.feelFailures.length ? "#d87070" : "#8acb8a";
-      ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
+      if (G.showDebugHUD) {
+        ctx.font="11px monospace";
+        ctx.fillStyle = G.phase2Preview?.enabled ? "#d4be6c" : "#7e6a76";
+        ctx.fillText(`F3 PREVIEW ${G.phase2Preview?.enabled ? "ON" : "OFF"}`,W/2-80,40);
+        ctx.fillStyle = G.bossDebugOverlay ? "#d4be6c" : "#7e6a76";
+        ctx.fillText(`F6 BOSS ${G.bossDebugOverlay ? "ON" : "OFF"}`,W/2+50,40);
+        ctx.fillStyle = G.itemDebugOverlay ? "#d4be6c" : "#7e6a76";
+        ctx.fillText(`F7 ITEMS ${G.itemDebugOverlay ? "ON" : "OFF"}`,W/2+170,40);
+        ctx.fillStyle = G.phase25Visuals.enabled ? "#8acb8a" : "#a98989";
+        ctx.fillText(`F4 VISUAL ${G.phase25Visuals.enabled ? "ON" : "LEGACY"} / F5 CHECKLIST ${G.phase25Visuals.checklist ? "ON" : "OFF"}`,W/2-160,H-10);
+        ctx.font="16px monospace";
+        const feelSummary = VesselGameplay.summarizeFeel(G.feelMetrics);
+        ctx.fillStyle = G.feelFailures.length ? "#d87070" : "#8acb8a";
+        ctx.fillText(`FEEL ${G.feelFailures.length ? "REGRESSED" : "OK"} L95:${feelSummary.latencyP95Ms.toFixed(0)}ms`,W/2-130,H-28);
+      }
       const mx=W-145,my=H-49;
-      for (const r of G.dungeon.rooms) { const x=mx+(r.x-2)*14,y=my+(r.y-2)*14; ctx.fillStyle=r===G.room?"#f0d477":(r.visited||p.mapReveal?"#8b6d7c":"#291723"); ctx.fillRect(x,y,10,10); }
-      if (G.msgT>0) { ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,50); }
+      const miniRoomColors = { boss:"#9f3040", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050" };
+      const miniRoomLabels = { boss:"B", altar:"A", confession:"?", reliquary:"R", start:"S" };
+      for (const r of G.dungeon.rooms) { const x=mx+(r.x-2)*14,y=my+(r.y-2)*14; const vis=r.visited||p.mapReveal; ctx.fillStyle=r===G.room?"#f0d477":(vis?(miniRoomColors[r.type]||"#8b6d7c"):"#291723"); ctx.fillRect(x,y,10,10); if (vis && miniRoomLabels[r.type]) { ctx.fillStyle=r===G.room?"#1a0a08":"#d8d0c2"; ctx.font="7px monospace"; ctx.fillText(miniRoomLabels[r.type],x+2,y+8); } }
+      if (G.msgT>0) { ctx.fillStyle="#f0dfbf"; ctx.fillText(G.msg,W/2-ctx.measureText(G.msg).width/2,ROOM_Y+TILE+20); }
     }
     function drawPlaying() {
       const presentation = globalThis.VesselPresentation;
@@ -502,13 +758,52 @@
       const nowMs = performance.now();
       drawRoom();
       for (const p of G.room.pickups) {
-        if (p.hidden) continue;
-        if (usePresentation) observePhase25State("item", presentation.renderPickup(ctx, p, nowMs));
-        else {
+        // Always draw pedestal base
+        if (usePresentation && !p.taken) observePhase25State("item", presentation.renderPickup(ctx, p, nowMs));
+        else if (!p.taken) {
           ctx.fillStyle="#2d1f12"; ctx.fillRect(p.x-14,p.y+8,28,8);
           ctx.fillStyle="#f2e4bf"; ctx.fillRect(p.x-10,p.y-18,20,28);
         }
-        if (p.item) { ctx.fillStyle="#e8c95e"; ctx.fillText(p.item.name,p.x-60,p.y-24); }
+        // Empty pedestal base when item is taken
+        if (p.taken) {
+          ctx.fillStyle="#2d1f12"; ctx.fillRect(p.x-14,p.y+8,28,8);
+          ctx.fillStyle="#1a130c"; ctx.fillRect(p.x-10,p.y-6,20,16);
+        }
+        if (p.item && !p.hidden && !p.taken) { ctx.fillStyle="#e8c95e"; ctx.font="12px monospace"; ctx.fillText(p.item.name,p.x-ctx.measureText(p.item.name).width/2,p.y-24); }
+      }
+      // Confession room visual cues
+      if (G.room.type === "confession" && !G.room.choiceDone) {
+        // Dividing line
+        ctx.strokeStyle = "#4070a0"; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
+        ctx.beginPath(); ctx.moveTo(W/2, ROOM_Y + TILE + 8); ctx.lineTo(W/2, ROOM_Y + ROOM_PX_H - TILE - 8); ctx.stroke();
+        ctx.setLineDash([]);
+        // Left choice: +1 DMG, -1 SOUL
+        ctx.fillStyle = "#bf4b54"; ctx.font = "13px monospace";
+        ctx.fillText("WRATH", W/2 - 180, H/2 - 30);
+        ctx.fillStyle = "#9a8a78"; ctx.font = "11px monospace";
+        ctx.fillText("+1 DAMAGE", W/2 - 180, H/2 - 12);
+        ctx.fillText("-1 SOUL", W/2 - 180, H/2 + 4);
+        // Right choice: +2 MAX SOUL, +15 CORRUPTION
+        ctx.fillStyle = "#8b4abf"; ctx.font = "13px monospace";
+        ctx.fillText("PENANCE", W/2 + 80, H/2 - 30);
+        ctx.fillStyle = "#9a8a78"; ctx.font = "11px monospace";
+        ctx.fillText("+2 MAX SOUL", W/2 + 80, H/2 - 12);
+        ctx.fillText("+15 CORRUPTION", W/2 + 80, H/2 + 4);
+        // Prompt
+        ctx.fillStyle = "#4070a0"; ctx.font = "11px monospace";
+        ctx.fillText("STAND ON A SIDE AND PRESS E", W/2 - 105, ROOM_Y + ROOM_PX_H - TILE - 16);
+      }
+      if (G.room.type === "confession" && G.room.choiceDone) {
+        ctx.fillStyle = "#3a2840"; ctx.font = "12px monospace";
+        ctx.fillText("THE CONFESSION IS SEALED", W/2 - 100, H/2);
+      }
+      // Descent portal after boss drop
+      if (G.descentPortal && G.descentPortal.spawnT <= 0) {
+        const dp = G.descentPortal;
+        const pulse = Math.sin(nowMs * 0.005) * 0.15 + 0.85;
+        ctx.fillStyle = `rgba(80,20,50,${0.6 * pulse})`; ctx.beginPath(); ctx.arc(dp.x, dp.y, 28, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = `rgba(180,60,90,${0.4 * pulse})`; ctx.beginPath(); ctx.arc(dp.x, dp.y, 16, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle="#d8a0b0"; ctx.font="11px monospace"; ctx.fillText("DESCEND", dp.x-24, dp.y-34);
       }
       for (const s of G.shots) {
         if (usePresentation) presentation.renderProjectile(ctx, s);
@@ -518,18 +813,55 @@
         if (usePresentation) presentation.renderProjectile(ctx, s);
         else { ctx.fillStyle=s.color||"#a33"; ctx.fillRect(s.x-4,s.y-4,8,8); }
       }
+      // Render hazards below enemies
+      if (G.activeBoss && G.activeBoss.activeHazards && usePresentation && presentation.renderHazard) {
+        for (const h of G.activeBoss.activeHazards) presentation.renderHazard(ctx, h, nowMs);
+      }
       for (const e of G.room.enemies) if (e.hp>0) {
-        if (usePresentation) observePhase25State((e.type==="shepherd"||e.type==="pit") ? "boss" : "enemy", presentation.renderEnemy(ctx, e, nowMs));
+        // Burn (dot) glow on burning enemies
+        if (e.dotT > 0) {
+          const burnAlpha = Math.min(0.6, e.dotT * 0.2);
+          ctx.fillStyle = `rgba(220,100,20,${burnAlpha})`; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 4, 0, Math.PI*2); ctx.fill();
+        }
+        const isBoss = e.type==="shepherd"||e.type==="pit"||e.type==="choir";
+        // Jitter offset for non-boss enemies so stacked ones are visible
+        const jx = isBoss ? 0 : ((e._uid * 7) % 11) - 5;
+        const jy = isBoss ? 0 : ((e._uid * 13) % 9) - 4;
+        const ex = e.x + jx, ey = e.y + jy;
+        if (usePresentation) { const prev = {x:e.x,y:e.y}; e.x=ex; e.y=ey; observePhase25State(isBoss ? "boss" : "enemy", presentation.renderEnemy(ctx, e, nowMs)); e.x=prev.x; e.y=prev.y; }
         else {
           ctx.fillStyle=e.color;
-          if (["wisp","seraph"].includes(e.type)) { ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2); ctx.fill(); }
-          else if (e.type==="tendril") ctx.fillRect(e.x-8,e.y-20,16,40);
-          else ctx.fillRect(e.x-e.r*0.6,e.y-e.r*0.7,e.r*1.2,e.r*1.4);
+          if (["wisp","seraph"].includes(e.type)) { ctx.beginPath(); ctx.arc(ex,ey,e.r,0,Math.PI*2); ctx.fill(); }
+          else if (e.type==="tendril") ctx.fillRect(ex-8,ey-20,16,40);
+          else ctx.fillRect(ex-e.r*0.6,ey-e.r*0.7,e.r*1.2,e.r*1.4);
         }
-        if (e.type==="shepherd"||e.type==="pit") {
-          ctx.fillStyle="#2a0010"; ctx.fillRect(W/2-140,ROOM_Y+10,280,10);
-          ctx.fillStyle="#bf4b54"; ctx.fillRect(W/2-140,ROOM_Y+10,280*Math.max(0,e.hp/e.maxHp),10);
+        if (isBoss) {
+          const bossNames = {shepherd:"THE SHEPHERD",pit:"THE PIT",choir:"THE CHOIR"};
+          ctx.fillStyle="#d8c6b8"; ctx.font="12px monospace";
+          const bname = bossNames[e.type] || e.type.toUpperCase();
+          ctx.fillText(bname, W/2 - ctx.measureText(bname).width/2, ROOM_Y+TILE+16);
+          ctx.fillStyle="#2a0010"; ctx.fillRect(W/2-140,ROOM_Y+TILE+22,280,8);
+          ctx.fillStyle="#bf4b54"; ctx.fillRect(W/2-140,ROOM_Y+TILE+22,280*Math.max(0,e.hp/e.maxHp),8);
+          if (e.phaseId && e.phaseId[0] !== '_') { ctx.fillStyle="#8a6a72"; ctx.font="10px monospace"; ctx.fillText(e.phaseId.toUpperCase(), W/2+150, ROOM_Y+TILE+30); }
         }
+      }
+      // Phase transition flash
+      if (G.bossPhaseFlash > 0 && G.activeBoss && usePresentation && presentation.renderBossPhaseFlash) {
+        presentation.renderBossPhaseFlash(ctx, G.activeBoss, G.bossPhaseFlash, nowMs);
+      }
+      // Boss debug overlay (F6)
+      if (G.bossDebugOverlay && G.activeBoss && VesselGameplay.getBossDebugOverlay) {
+        const dbg = VesselGameplay.getBossDebugOverlay(G.activeBoss);
+        ctx.fillStyle = "rgba(10,2,12,0.86)"; ctx.fillRect(ROOM_X + 14, ROOM_Y + 30, 340, 120);
+        ctx.strokeStyle = "#6d4a58"; ctx.strokeRect(ROOM_X + 14, ROOM_Y + 30, 340, 120);
+        ctx.fillStyle = "#d8d0c2"; ctx.font = "11px monospace";
+        const lines = [
+          `BOSS: ${dbg.id}  PHASE: ${dbg.phaseId}  HP: ${dbg.health}`,
+          `TIME: ${dbg.phaseTimeMs}ms  LOCKED: ${dbg.inputLocked}  DEAD: ${dbg.dead}`,
+          `HAZARDS: ${dbg.activeHazards}  PHASES: ${dbg.phasesVisited}`,
+        ];
+        if (dbg.attacks) lines.push(`ATTACKS: ${dbg.attacks}`);
+        for (let li = 0; li < lines.length; li++) ctx.fillText(lines[li], ROOM_X + 22, ROOM_Y + 48 + li * 16);
       }
       if (G.phase2Preview?.enabled) {
         for (const e of G.phase2Preview.enemies) {
@@ -562,7 +894,48 @@
         ctx.fillStyle = "#dfd2be"; ctx.fillText("PHASE2.5 READABILITY CHECKLIST", panelX + 10, panelY + 20);
         rows.forEach((line, idx) => ctx.fillText(line, panelX + 10, panelY + 40 + idx * 16));
       }
+      // F7 Item/Synergy debug overlay
+      if (G.itemDebugOverlay) {
+        const p4x = ROOM_X + 14, p4y = ROOM_Y + ROOM_PX_H - 200;
+        const p4w = 400, p4h = 190;
+        ctx.fillStyle = "rgba(10,2,12,0.88)"; ctx.fillRect(p4x, p4y, p4w, p4h);
+        ctx.strokeStyle = "#6d4a58"; ctx.strokeRect(p4x, p4y, p4w, p4h);
+        ctx.fillStyle = "#d4be6c"; ctx.font = "11px monospace";
+        ctx.fillText("PHASE4 ITEM/SYNERGY OVERLAY", p4x + 10, p4y + 16);
+        ctx.fillStyle = "#dfd2be";
+        const dps = (G.player.damage * G.player.tears).toFixed(2);
+        const corr = Math.round(G.player.corruption);
+        const viable = VesselGameplay.detectDeadBuild(G.player, G.player.itemIds);
+        ctx.fillText(`DPS: ${dps}  DMG: ${G.player.damage.toFixed(1)}  TEARS: ${G.player.tears.toFixed(1)}  CORR: ${corr}%`, p4x + 10, p4y + 32);
+        ctx.fillText(`SOUL: ${G.player.soul.toFixed(1)}/${G.player.maxSoul}  DR: ${(G.player.damageReduction*100).toFixed(0)}%  VIABLE: ${viable.viable ? "YES" : "NO"}`, p4x + 10, p4y + 48);
+        ctx.fillText(`HELD: ${G.player.itemIds.join(", ") || "none"}`, p4x + 10, p4y + 64);
+        const synLines = G.player.activeSynergies.map(s => `${s.type.toUpperCase()}: ${s.name}`);
+        ctx.fillStyle = synLines.length > 0 ? "#8acb8a" : "#7e6a76";
+        ctx.fillText(`SYNERGIES: ${synLines.length || "none"}`, p4x + 10, p4y + 80);
+        for (let si = 0; si < Math.min(synLines.length, 6); si++) {
+          ctx.fillText("  " + synLines[si], p4x + 10, p4y + 96 + si * 14);
+        }
+        if (!viable.viable) {
+          ctx.fillStyle = "#d87070";
+          ctx.fillText("ISSUES: " + viable.issues.join(", "), p4x + 10, p4y + 176);
+        }
+        // Corruption scaling preview
+        if (G.player.corruptionDamageScale || G.player.corruptionTearBonus) {
+          const cb = VesselGameplay.resolveCorruptionScaling(G.player);
+          ctx.fillStyle = "#c49d64";
+          ctx.fillText(`CORR BONUS: +${cb.damage.toFixed(1)} dmg  +${cb.tears.toFixed(1)} tears`, p4x + 10, p4y + 160);
+        }
+      }
       const p=G.player;
+      // Aura visual: pulsing ring around player
+      if (p.aura) {
+        const auraPulse = Math.sin(nowMs * 0.006) * 0.15 + 0.45;
+        ctx.strokeStyle = `rgba(130,30,70,${auraPulse})`; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 80, 0, Math.PI*2); ctx.stroke();
+        ctx.strokeStyle = `rgba(90,15,50,${auraPulse * 0.5})`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 60, 0, Math.PI*2); ctx.stroke();
+        ctx.lineWidth = 1;
+      }
       if (!(p.inv>0&&((performance.now()/50)|0)%2===0)) {
         if (usePresentation) observePhase25State("player", presentation.renderPlayer(ctx, p, nowMs));
         else {
@@ -572,13 +945,102 @@
         }
       }
       drawHUD();
+      // --- Item tooltip popup (top-left) when near a pedestal ---
+      if (G.nearbyItem && !G.nearbyItem.taken && !G.nearbyItem.hidden) {
+        const tip = VesselGameplay.formatItemTooltip(G.nearbyItem.itemId);
+        if (tip) {
+          const tx = 16, ty = 50;
+          const lineH = 15;
+          const catLabels = { offense: "OFFENSE", defense: "DEFENSE", utility: "UTILITY", economy: "ECONOMY", corruption_tech: "CORRUPTION" };
+          const catColors = { offense: "#bf4b54", defense: "#5a9a5f", utility: "#5a7abf", economy: "#c9a030", corruption_tech: "#8b4abf" };
+          // Word-wrap description into lines
+          const panelW = 300;
+          const maxChars = Math.floor((panelW - 20) / 7.2);
+          const descLines = [];
+          if (tip.desc) {
+            const words = tip.desc.split(' ');
+            let cur = '';
+            for (const w of words) {
+              if ((cur + ' ' + w).trim().length > maxChars) { descLines.push(cur); cur = w; }
+              else { cur = cur ? cur + ' ' + w : w; }
+            }
+            if (cur) descLines.push(cur);
+          }
+          const totalLines = 2 + descLines.length + tip.effects.length + (tip.corruption !== 0 ? 1 : 0) + (tip.tags.length ? 1 : 0);
+          const panelH = 22 + totalLines * lineH + 10;
+          ctx.fillStyle = "rgba(8,2,10,0.92)"; ctx.fillRect(tx, ty, panelW, panelH);
+          ctx.strokeStyle = "#5c2742"; ctx.strokeRect(tx, ty, panelW, panelH);
+          let cy = ty + 18;
+          ctx.fillStyle = "#e8c95e"; ctx.font = "13px monospace"; ctx.fillText(tip.name, tx + 8, cy); cy += lineH;
+          ctx.fillStyle = catColors[tip.category] || "#8a6a72"; ctx.font = "10px monospace"; ctx.fillText(catLabels[tip.category] || tip.category.toUpperCase(), tx + 8, cy); cy += lineH + 2;
+          ctx.fillStyle = "#9a8a78"; ctx.font = "11px monospace";
+          for (const dl of descLines) { ctx.fillText(dl, tx + 8, cy); cy += lineH; }
+          ctx.fillStyle = "#dfd2be"; ctx.font = "11px monospace";
+          for (const eff of tip.effects) { ctx.fillText("  " + eff, tx + 8, cy); cy += lineH; }
+          if (tip.corruption !== 0) {
+            ctx.fillStyle = tip.corruption > 0 ? "#9f3535" : "#5a9a5f";
+            ctx.fillText("  " + (tip.corruption > 0 ? "+" : "") + tip.corruption + " CORRUPTION", tx + 8, cy); cy += lineH;
+          }
+          if (tip.tags.length) {
+            ctx.fillStyle = "#6a5a6e"; ctx.fillText("  [" + tip.tags.join(", ") + "]", tx + 8, cy);
+          }
+        }
+      }
+      // --- Map & Inventory overlay (Tab) ---
       if (G.mapOpen) {
-        ctx.fillStyle="rgba(5,0,8,0.86)"; ctx.fillRect(90,70,W-180,H-140);
-        ctx.strokeStyle="#5c2742"; ctx.strokeRect(90,70,W-180,H-140);
-        ctx.fillStyle="#d8c4ad"; ctx.fillText("MAP & INVENTORY",W/2-80,100);
+        const ox = 60, oy = 50, ow = W - 120, oh = H - 100;
+        ctx.fillStyle="rgba(5,0,8,0.92)"; ctx.fillRect(ox,oy,ow,oh);
+        ctx.strokeStyle="#5c2742"; ctx.strokeRect(ox,oy,ow,oh);
+        ctx.fillStyle="#d8c4ad"; ctx.font="14px monospace"; ctx.fillText("MAP",ox+20,oy+22);
+        // Enhanced minimap with room-type colors and labels
+        const roomTypeColors = { start:"#6d4a58", boss:"#9f3040", combat:"#6d4a58", altar:"#c9a030", confession:"#4070a0", reliquary:"#408050" };
+        const roomTypeLabels = { start:"S", boss:"B", combat:"", altar:"A", confession:"?", reliquary:"R" };
+        const mapCx = ox + 130, mapCy = oy + oh/2 - 20;
         for (const r of G.dungeon.rooms) {
-          const x=W/2-100+(r.x-2)*40,y=H/2-80+(r.y-2)*40;
-          ctx.fillStyle=r===G.room?"#d8b85f":(r.visited||G.player.mapReveal?"#6d4a58":"#1f131b"); ctx.fillRect(x,y,30,30);
+          const rx = mapCx + (r.x-2)*38, ry = mapCy + (r.y-2)*38;
+          const vis = r.visited || G.player.mapReveal;
+          ctx.fillStyle = r===G.room ? "#d8b85f" : vis ? (roomTypeColors[r.type] || "#6d4a58") : "#1f131b";
+          ctx.fillRect(rx, ry, 28, 28);
+          if (vis || r === G.room) {
+            const lbl = roomTypeLabels[r.type] || "";
+            if (lbl) { ctx.fillStyle = r===G.room ? "#1a0a08" : "#d8d0c2"; ctx.font = "10px monospace"; ctx.fillText(lbl, rx + 10, ry + 18); }
+          }
+          // Draw connections
+          ctx.strokeStyle = vis ? "#3a2030" : "#150a10"; ctx.lineWidth = 1;
+          if (r.doors.r && G.dungeon.grid[r.y]?.[r.x+1]) { ctx.beginPath(); ctx.moveTo(rx+28,ry+14); ctx.lineTo(rx+38,ry+14); ctx.stroke(); }
+          if (r.doors.d && G.dungeon.grid[r.y+1]?.[r.x]) { ctx.beginPath(); ctx.moveTo(rx+14,ry+28); ctx.lineTo(rx+14,ry+38); ctx.stroke(); }
+        }
+        // Inventory panel (right side)
+        const invX = ox + 280, invY = oy + 10;
+        ctx.fillStyle="#d8c4ad"; ctx.font="14px monospace"; ctx.fillText("INVENTORY", invX, invY + 12);
+        ctx.fillStyle="#7a6a6e"; ctx.font="11px monospace";
+        const invP = G.player;
+        ctx.fillText(`SOUL: ${invP.soul.toFixed(1)}/${invP.maxSoul}  CORRUPTION: ${Math.round(invP.corruption)}%  DMG: ${invP.damage.toFixed(1)}  TEARS: ${invP.tears.toFixed(1)}`, invX, invY + 30);
+        ctx.fillText(`SPEED: ${invP.speed.toFixed(0)}  RANGE: ${invP.range.toFixed(0)}  DR: ${(invP.damageReduction*100).toFixed(0)}%  DPS: ${(invP.damage*invP.tears).toFixed(1)}`, invX, invY + 44);
+        let iy = invY + 66;
+        const catColors = { offense: "#bf4b54", defense: "#5a9a5f", utility: "#5a7abf", economy: "#c9a030", corruption_tech: "#8b4abf" };
+        if (invP.itemIds.length === 0) { ctx.fillStyle="#5a4a4e"; ctx.fillText("No items collected", invX, iy); }
+        for (let ii = 0; ii < invP.itemIds.length && iy < oy + oh - 40; ii++) {
+          const tip = VesselGameplay.formatItemTooltip(invP.itemIds[ii]);
+          if (!tip) continue;
+          ctx.fillStyle = catColors[tip.category] || "#8a6a72"; ctx.font = "11px monospace";
+          ctx.fillText("\u25A0", invX, iy);
+          ctx.fillStyle = "#e8c95e"; ctx.fillText(" " + tip.name, invX + 10, iy);
+          ctx.fillStyle = "#9a8a78"; ctx.font = "10px monospace";
+          const effStr = tip.effects.join(", ");
+          ctx.fillText("  " + effStr, invX, iy + 13);
+          iy += 30;
+        }
+        // Active synergies
+        if (invP.activeSynergies.length > 0 && iy < oy + oh - 20) {
+          ctx.fillStyle="#8acb8a"; ctx.font="12px monospace"; ctx.fillText("SYNERGIES", invX, iy + 4); iy += 18;
+          for (const syn of invP.activeSynergies) {
+            if (iy >= oy + oh - 10) break;
+            ctx.fillStyle="#8acb8a"; ctx.font="10px monospace";
+            const synDesc = syn.desc || (syn.tag ? syn.stacks + "x " + syn.tag + " tag bonus" : "");
+            ctx.fillText(syn.name + (synDesc ? " — " + synDesc : ""), invX + 8, iy);
+            iy += 14;
+          }
         }
       }
       if (G.flash>0) { ctx.fillStyle=`rgba(180,20,20,${Math.min(0.45,G.flash*0.45)})`; ctx.fillRect(0,0,W,H); }
