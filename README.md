@@ -4,6 +4,10 @@ VESSEL is a browser-based, top-down 2D roguelite with horror-first tone, determi
 
 The current game is a playable prototype at `960x540` with modular runtime/gameplay systems in `src/` and deterministic validation scripts in `scripts/bench/`.
 
+## How to play
+
+This game is hosted on GitHub Pages at [https://theanarchox.github.io/Vessel/](https://theanarchox.github.io/Vessel/).
+
 ## Vision
 
 - Horror-forward atmosphere over power fantasy.
